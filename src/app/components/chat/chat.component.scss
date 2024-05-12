@@ -59,6 +59,17 @@ body {
             color: #bcbdc0;
             font-size: 20px;
         }
+
+        .delete-local-storage{
+            margin: -2rem 1rem 1rem 1rem;
+            float: right;
+        }
+
+        .unread-messages-count{
+            text-align: center;
+            font-style: italic;
+            color: cadetblue;
+        }
     }
 
     .messages {
@@ -104,19 +115,20 @@ body {
 
             &.right {
                 .avatar {
-                    background-color: #008069;
+                    background-color: #00a884;
                     float: right;
                 }
 
                 .text_wrapper {
-                    background-color: #00a884;
+                    background-color: #a4f6d8;
+                    color: #045043;
                     margin-right: 20px;
                     float: right;
 
                     &::after,
                     &::before {
                         left: 100%;
-                        border-left-color: #00a884;
+                        border-left-color: #a4f6d8;
                     }
                 }
 
@@ -134,8 +146,8 @@ body {
                 height: 50px;
                 border-radius: 50%;
                 display: inline-block;
-				color: white;
                 text-align: center;
+                color: #edeff2;
                 vertical-align: middle;
                 align-items: center;
                 display: grid;
@@ -188,6 +200,7 @@ body {
         padding: 20px 20px;
         position: absolute;
         bottom: 0;
+        display: flex;
 
         .message_input_wrapper {
             display: inline-block;
@@ -221,7 +234,7 @@ body {
             cursor: pointer;
             transition: all 0.2s linear;
             text-align: center;
-            float: right;
+            //float: right;
 
             &:hover {
                 color: #a3d063;

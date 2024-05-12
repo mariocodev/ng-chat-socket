@@ -12,19 +12,29 @@ export class ChatComponent implements OnInit {
 
 	messageInput: string = "";
 	userId: string = "";
+	roomId: string = "";
 	messageList: any[] = [];
-	private salaName: string = 'Sala-1';
 	@ViewChild('messageContainer') messageContainer: ElementRef | undefined;
+	unreadMessagesCount: number = 0;
+	notAllowed: string = "";
 
 	constructor(
 		private chatService: ChatService,
-		private route: ActivatedRoute){
-	}
+		private route: ActivatedRoute
+	) {}
 
 	ngOnInit(): void {
 		this.userId = this.route.snapshot.params["userId"];
-		this.chatService.joinRoom(this.salaName);
-		this.listenerMessage();
+		this.route.params.subscribe(params => { this.roomId = params['roomId'];	});
+		
+		// Verificar si el usuario tiene permiso para acceder a la sala antes de suscribirse a los mensajes
+		if (this.userId && this.roomId) {
+			this.chatService.joinRoom(this.roomId);
+			this.listenerMessage();
+		} else {
+			// Si no hay usuario o roomId, redirigir a una página de error o a la página principal
+			console.log("No tienes permiso")
+		}		
 	}
 
 	ngAfterViewInit(): void {
@@ -38,10 +48,14 @@ export class ChatComponent implements OnInit {
 			message: this.messageInput,
 			user: this.userId
 		} as ChatMessage
-		this.chatService.sendMessage(this.salaName, chatMessage);
+
+		this.chatService.sendMessage(this.roomId, chatMessage);
 		this.messageInput = '';
 		// Después de enviar el mensaje, hacer scroll hacia el último mensaje
 		this.scrollToBottom();
+		this.unreadMessagesCount = 0;
+		this.chatService.resetUnreadMessagesCount(this.roomId);
+		
 	}
 
 	scrollToBottom() {
@@ -54,11 +68,27 @@ export class ChatComponent implements OnInit {
 
 	listenerMessage() {
 		this.chatService.getMessageSubject().subscribe((messages: any) => {
+			console.log("messages : ", messages)
 			this.messageList = messages.map((item: any) => ({
-				...item,
-				message_side: item.user === this.userId ? 'sender' : 'receiver',
-				user: item.user === this.userId ? 'You' : item.user
-			}))
+			  ...item,
+			  message_side: item.user === this.userId ? 'sender' : 'receiver',
+			  user: item.user === this.userId ? 'You' : item.user
+			}));
+	  
+			// Verificar si hay mensajes antes de incrementar el contador de mensajes no leídos
+			if (messages.length > 0) {
+				// Actualizar el contador de mensajes no leídos solo para los usuarios receptores
+				const isRoomFocused = this.roomId === messages.roomId;
+				if (!isRoomFocused && messages.user !== this.userId) {
+				  this.unreadMessagesCount++;
+				}
+			}
+			
 		});
+	}
+
+	clearLocalStorage() {
+		this.unreadMessagesCount = 0;
+		this.chatService.clearLocalStorageData();
 	}
 }
