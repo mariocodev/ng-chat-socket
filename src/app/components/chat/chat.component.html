@@ -9,7 +9,7 @@
             <img src="../../../assets/whatsapp-icon.png" width="25px" height="25px"> WhatsApp
         </div>
     </div>
-    <ul class="messages">
+    <ul class="messages" #messageContainer>
         <li class="message right" *ngFor="let item of messageList"
             [ngClass]="{ 'left': item.message_side === 'receiver', 'right': item.message_side === 'sender' }">
             <div class="avatar">{{item.user}}</div>

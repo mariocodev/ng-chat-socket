@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { ChatMessage } from 'src/app/models/chat-message.interface';
 import { ChatService } from 'src/app/services/chat.service';
@@ -13,7 +13,8 @@ export class ChatComponent implements OnInit {
 	messageInput: string = "";
 	userId: string = "";
 	messageList: any[] = [];
-	private salaName: string = 'Sala1';
+	private salaName: string = 'Sala-1';
+	@ViewChild('messageContainer') messageContainer: ElementRef | undefined;
 
 	constructor(
 		private chatService: ChatService,
@@ -26,6 +27,10 @@ export class ChatComponent implements OnInit {
 		this.listenerMessage();
 	}
 
+	ngAfterViewInit(): void {
+        this.scrollToBottom();
+    }
+
 	sendMessage() {
 		console.log("sendMessage : ", this.messageInput)
 		if (!this.messageInput) return;
@@ -35,7 +40,17 @@ export class ChatComponent implements OnInit {
 		} as ChatMessage
 		this.chatService.sendMessage(this.salaName, chatMessage);
 		this.messageInput = '';
+		// Después de enviar el mensaje, hacer scroll hacia el último mensaje
+		this.scrollToBottom();
 	}
+
+	scrollToBottom() {
+        setTimeout(() => {
+			if (this.messageContainer) {
+				this.messageContainer.nativeElement.scrollTop = this.messageContainer.nativeElement.scrollHeight;
+			}
+		}, 100); // Aumentamos el tiempo de espera a 100 milisegundos
+    }
 
 	listenerMessage() {
 		this.chatService.getMessageSubject().subscribe((messages: any) => {
@@ -46,7 +61,4 @@ export class ChatComponent implements OnInit {
 			}))
 		});
 	}
-
-	
-
 }
