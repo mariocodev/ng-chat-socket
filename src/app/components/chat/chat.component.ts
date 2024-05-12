@@ -1,4 +1,5 @@
 import { Component, OnInit } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
 import { ChatMessage } from 'src/app/models/chat-message.interface';
 import { ChatService } from 'src/app/services/chat.service';
 
@@ -9,20 +10,41 @@ import { ChatService } from 'src/app/services/chat.service';
 })
 export class ChatComponent implements OnInit {
 
-	constructor(private chatService: ChatService){
+	messageInput: string = "";
+	userId: string = "";
+	messageList: any[] = [];
+	private salaName: string = 'Sala1';
 
+	constructor(
+		private chatService: ChatService,
+		private route: ActivatedRoute){
 	}
 
 	ngOnInit(): void {
-		this.chatService.joinRoom("ABC");
+		this.userId = this.route.snapshot.params["userId"];
+		this.chatService.joinRoom(this.salaName);
+		this.listenerMessage();
 	}
 
 	sendMessage() {
+		console.log("sendMessage : ", this.messageInput)
+		if (!this.messageInput) return;
 		const chatMessage = {
-			message: 'Hola',
-			user: '5'
+			message: this.messageInput,
+			user: this.userId
 		} as ChatMessage
-		this.chatService.sendMessage("ABC", chatMessage);
+		this.chatService.sendMessage(this.salaName, chatMessage);
+		this.messageInput = '';
+	}
+
+	listenerMessage() {
+		this.chatService.getMessageSubject().subscribe((messages: any) => {
+			this.messageList = messages.map((item: any) => ({
+				...item,
+				message_side: item.user === this.userId ? 'sender' : 'receiver',
+				user: item.user === this.userId ? 'You' : item.user
+			}))
+		});
 	}
 
 	

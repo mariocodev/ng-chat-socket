@@ -10,20 +10,21 @@
         </div>
     </div>
     <ul class="messages">
-        <li class="message right">
-            <div class="avatar"></div>
+        <li class="message right" *ngFor="let item of messageList"
+            [ngClass]="{ 'left': item.message_side === 'receiver', 'right': item.message_side === 'sender' }">
+            <div class="avatar">{{item.user}}</div>
             <div class="text_wrapper">
-                <div class="text">Hola</div>
+                <div class="text">{{item.message}}</div>
             </div>
         </li>
     </ul>
     <div class="bottom_wrapper clearfix">
         <div class="message_input_wrapper">
-            <input class="message_input" placeholder="Message..." />
+            <input class="message_input" placeholder="Message..." [(ngModel)]="messageInput" (keydown.enter)="sendMessage()"/>
         </div>
-        <div class="send_message" (click)="sendMessage()">
+        <button class="send_message" [disabled]="!messageInput" (click)="sendMessage()">
             <div class="icon"></div>
             <div class="text">Send</div>
-        </div>
+        </button>
     </div>
 </div>

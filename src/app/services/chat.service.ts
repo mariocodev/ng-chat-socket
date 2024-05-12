@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { Stomp } from '@stomp/stompjs';
+import { BehaviorSubject } from 'rxjs';
 import * as SockJS from 'sockjs-client';
 import { ChatMessage } from 'src/app/models/chat-message.interface';
 
@@ -7,7 +8,9 @@ import { ChatMessage } from 'src/app/models/chat-message.interface';
   	providedIn: 'root'
 })
 export class ChatService {
+
 	private stompClient: any;
+	private messageSubject: BehaviorSubject<ChatMessage[]> = new BehaviorSubject<ChatMessage[]>([]); // listener
 
 	constructor(){
 		this.initConnectionSocket();
@@ -23,9 +26,17 @@ export class ChatService {
 		this.stompClient.connect({}, () => {
 			this.stompClient.subscribe(`/topic/${roomId}`, (messages: any) => {
 				const messageContent = JSON.parse(messages.body);
-				console.log(messageContent);
+				const currentMessage = this.messageSubject.getValue();
+				currentMessage.push(messageContent);
+				
+				this.messageSubject.next(currentMessage ); // lsitener recibe los mensajes
+
 			})
 		})
+	}
+
+	getMessageSubject(){
+		return this.messageSubject.asObservable();
 	}
 
 	sendMessage(roomId: string, chatMessage: ChatMessage){
