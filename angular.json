@@ -23,6 +23,9 @@
             "polyfills": [
               "zone.js"
             ],
+            "allowedCommonJsDependencies": [
+              "sockjs-client"
+            ],
             "tsConfig": "tsconfig.app.json",
             "inlineStyleLanguage": "scss",
             "assets": [
@@ -65,10 +68,10 @@
           "builder": "@angular-devkit/build-angular:dev-server",
           "configurations": {
             "production": {
-              "browserTarget": "ng-chat-socket:build:production"
+              "buildTarget": "ng-chat-socket:build:production"
             },
             "development": {
-              "browserTarget": "ng-chat-socket:build:development"
+              "buildTarget": "ng-chat-socket:build:development"
             }
           },
           "defaultConfiguration": "development"
@@ -76,7 +79,7 @@
         "extract-i18n": {
           "builder": "@angular-devkit/build-angular:extract-i18n",
           "options": {
-            "browserTarget": "ng-chat-socket:build"
+            "buildTarget": "ng-chat-socket:build"
           }
         },
         "test": {
