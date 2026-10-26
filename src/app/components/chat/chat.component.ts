@@ -1,7 +1,9 @@
 import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
-import { ChatMessage } from 'src/app/models/chat-message.interface';
+import { ActivatedRoute, Router } from '@angular/router';
+import { ChatMessage, CHAT_USERS } from 'src/app/models/chat-message.interface';
 import { ChatService } from 'src/app/services/chat.service';
+
+type DisplayMessage = ChatMessage & { message_side: 'sender' | 'receiver' };
 
 @Component({
 	selector: 'app-chat',
@@ -9,86 +11,75 @@ import { ChatService } from 'src/app/services/chat.service';
 	styleUrls: ['./chat.component.scss']
 })
 export class ChatComponent implements OnInit {
-
-	messageInput: string = "";
-	userId: string = "";
-	roomId: string = "";
-	messageList: any[] = [];
-	@ViewChild('messageContainer') messageContainer: ElementRef | undefined;
-	unreadMessagesCount: number = 0;
-	notAllowed: string = "";
+	readonly users = CHAT_USERS;
+	contactUsers: readonly string[] = [];
+	userId = 'Bart';
+	contactId = 'Lisa';
+	messageInput = '';
+	messageList: DisplayMessage[] = [];
+	unreadCounts: Record<string, number> = {};
+	@ViewChild('messageContainer') messageContainer?: ElementRef<HTMLElement>;
 
 	constructor(
 		private chatService: ChatService,
-		private route: ActivatedRoute
+		private route: ActivatedRoute,
+		private router: Router
 	) {}
 
 	ngOnInit(): void {
-		this.userId = this.route.snapshot.params["userId"];
-		this.route.params.subscribe(params => { this.roomId = params['roomId'];	});
-		
-		// Verificar si el usuario tiene permiso para acceder a la sala antes de suscribirse a los mensajes
-		if (this.userId && this.roomId) {
-			this.chatService.joinRoom(this.roomId);
-			this.listenerMessage();
-		} else {
-			// Si no hay usuario o roomId, redirigir a una página de error o a la página principal
-			console.log("No tienes permiso")
-		}		
+		const routeUser = this.route.snapshot.paramMap.get('userId') || '';
+		const routeContact = this.route.snapshot.paramMap.get('contactId') || '';
+		this.userId = this.users.find(user => user.toLowerCase() === routeUser.toLowerCase()) || 'Bart';
+		this.contactUsers = this.users.filter(user => user !== this.userId);
+		this.contactId = this.users.find(user => user.toLowerCase() === routeContact.toLowerCase() && user !== this.userId)
+			|| this.users.find(user => user !== this.userId)!;
+
+		this.chatService.getMessageSubject().subscribe(messages => this.updateMessages(messages));
+		this.chatService.getUnreadCounts().subscribe(counts => this.unreadCounts = counts);
+		this.chatService.openConversation(this.userId, this.contactId);
+
+		if (routeUser !== this.userId || routeContact !== this.contactId) {
+			this.updateUrl();
+		}
 	}
 
-	ngAfterViewInit(): void {
-        this.scrollToBottom();
-    }
-
-	sendMessage() {
-		console.log("sendMessage : ", this.messageInput)
-		if (!this.messageInput) return;
-		const chatMessage = {
-			message: this.messageInput,
-			user: this.userId
-		} as ChatMessage
-
-		this.chatService.sendMessage(this.roomId, chatMessage);
+	selectContact(contact: string): void {
+		if (contact === this.userId || !this.users.some(user => user === contact)) return;
+		this.contactId = contact;
 		this.messageInput = '';
-		// Después de enviar el mensaje, hacer scroll hacia el último mensaje
-		this.scrollToBottom();
-		this.unreadMessagesCount = 0;
-		this.chatService.resetUnreadMessagesCount(this.roomId);
-		
+		this.chatService.openConversation(this.userId, contact);
+		this.updateUrl();
 	}
 
-	scrollToBottom() {
-        setTimeout(() => {
+	sendMessage(): void {
+		const message = this.messageInput.trim();
+		if (!message) return;
+
+		this.chatService.sendMessage(message);
+		this.messageInput = '';
+	}
+
+	clearConversation(): void {
+		this.chatService.clearConversation();
+	}
+
+	scrollToBottom(): void {
+		setTimeout(() => {
 			if (this.messageContainer) {
 				this.messageContainer.nativeElement.scrollTop = this.messageContainer.nativeElement.scrollHeight;
 			}
-		}, 100); // Aumentamos el tiempo de espera a 100 milisegundos
-    }
-
-	listenerMessage() {
-		this.chatService.getMessageSubject().subscribe((messages: any) => {
-			console.log("messages : ", messages)
-			this.messageList = messages.map((item: any) => ({
-			  ...item,
-			  message_side: item.user === this.userId ? 'sender' : 'receiver',
-			  user: item.user === this.userId ? 'You' : item.user
-			}));
-	  
-			// Verificar si hay mensajes antes de incrementar el contador de mensajes no leídos
-			if (messages.length > 0) {
-				// Actualizar el contador de mensajes no leídos solo para los usuarios receptores
-				const isRoomFocused = this.roomId === messages.roomId;
-				if (!isRoomFocused && messages.user !== this.userId) {
-				  this.unreadMessagesCount++;
-				}
-			}
-			
 		});
 	}
 
-	clearLocalStorage() {
-		this.unreadMessagesCount = 0;
-		this.chatService.clearLocalStorageData();
+	private updateMessages(messages: ChatMessage[]): void {
+		this.messageList = messages.map(message => ({
+			...message,
+			message_side: message.user === this.userId ? 'sender' : 'receiver'
+		}));
+		this.scrollToBottom();
+	}
+
+	private updateUrl(): void {
+		this.router.navigate(['/chat', this.userId, this.contactId]);
 	}
 }

@@ -1,41 +1,142 @@
-<div class="chat_window">
-    <div class="top_menu">
-        <div class="buttons">
-            <div class="button close"></div>
-            <div class="button minimize"></div>
-            <div class="button maximize"></div>
-        </div>
-        <div class="title">
-            <img src="../../../assets/whatsapp-icon.png" width="25px" height="25px"> WhatsApp
-        </div>
-        <div class="delete-local-storage">
-            <button type="button"class="btn btn-danger" (click)="clearLocalStorage()">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-trash3" viewBox="0 0 16 16">
-                    <path d="M6.5 1h3a.5.5 0 0 1 .5.5v1H6v-1a.5.5 0 0 1 .5-.5M11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3A1.5 1.5 0 0 0 5 1.5v1H1.5a.5.5 0 0 0 0 1h.538l.853 10.66A2 2 0 0 0 4.885 16h6.23a2 2 0 0 0 1.994-1.84l.853-10.66h.538a.5.5 0 0 0 0-1zm1.958 1-.846 10.58a1 1 0 0 1-.997.92h-6.23a1 1 0 0 1-.997-.92L3.042 3.5zm-7.487 1a.5.5 0 0 1 .528.47l.5 8.5a.5.5 0 0 1-.998.06L5 5.03a.5.5 0 0 1 .47-.53Zm5.058 0a.5.5 0 0 1 .47.53l-.5 8.5a.5.5 0 1 1-.998-.06l.5-8.5a.5.5 0 0 1 .528-.47M8 4.5a.5.5 0 0 1 .5.5v8.5a.5.5 0 0 1-1 0V5a.5.5 0 0 1 .5-.5"></path>
-                </svg>
-            </button>
-        </div>
-        <!-- Contador de mensajes no leídos -->
-        <div *ngIf="unreadMessagesCount > 0" class="unread-messages-count">
-            {{ unreadMessagesCount }} mensajes sin leer
-        </div>
-    </div>
-    <ul class="messages" #messageContainer>
-        <li class="message right" *ngFor="let item of messageList"
-            [ngClass]="{ 'left': item.message_side === 'receiver', 'right': item.message_side === 'sender' }">
-            <div class="avatar">{{item.user}}</div>
-            <div class="text_wrapper">
-                <div>{{item.message}}</div>
+<div class="flex h-dvh min-h-0 bg-slate-100 text-slate-700 md:p-3">
+    <div class="flex min-h-0 w-full overflow-hidden bg-white md:rounded-2xl md:border md:border-slate-200">
+        <aside class="hidden w-60 shrink-0 flex-col border-r border-slate-200 bg-slate-50 md:flex xl:w-72">
+            <div class="border-b border-slate-200 px-5 py-6">
+                <h1 class="text-lg font-semibold text-slate-800">Chats</h1>
+                <p class="mt-1 text-sm text-slate-500">Elige con quién conversar</p>
             </div>
-        </li>
-    </ul>
-    <div class="bottom_wrapper clearfix">
-        <div class="message_input_wrapper">
-            <input class="message_input" placeholder="Message..." [(ngModel)]="messageInput" (keydown.enter)="sendMessage()"/>
-        </div>
-        <button class="send_message" [disabled]="!messageInput" (click)="sendMessage()">
-            <div class="icon"></div>
-            <div class="text">Send</div>
-        </button>
+            <nav class="flex-1 space-y-1 overflow-y-auto p-3" aria-label="Usuarios">
+                <button
+                    *ngFor="let user of contactUsers"
+                    type="button"
+                    class="flex w-full items-center gap-3 rounded-xl p-3 text-left transition focus:outline-none focus:ring-2 focus:ring-slate-400"
+                    [ngClass]="user === contactId ? 'bg-white shadow-sm ring-1 ring-slate-200' : 'hover:bg-white/70'"
+                    [attr.aria-pressed]="user === contactId"
+                    (click)="selectContact(user)">
+                    <span class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-slate-900 text-sm font-semibold text-white">
+                        {{ user.charAt(0) }}
+                    </span>
+                    <span class="min-w-0 flex-1">
+                        <span class="block truncate text-sm font-medium text-slate-800">{{ user }}</span>
+                        <span class="mt-1 block truncate text-xs text-slate-500">Conversación privada</span>
+                    </span>
+                    <span *ngIf="unreadCounts[user] > 0" class="grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-slate-900 px-1.5 text-xs font-semibold text-white" [attr.aria-label]="unreadCounts[user] + ' mensajes sin leer'">
+                        {{ unreadCounts[user] > 99 ? '99+' : unreadCounts[user] }}
+                    </span>
+                    <span *ngIf="unreadCounts[user] === 0 && user === contactId" class="h-2 w-2 shrink-0 rounded-full bg-emerald-500"></span>
+                </button>
+            </nav>
+        </aside>
+
+        <main class="flex min-w-0 flex-1 flex-col">
+            <header class="flex min-h-16 items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 sm:px-6">
+                <div class="flex min-w-0 items-center gap-3">
+                    <div class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-slate-900 text-sm font-semibold text-white">
+                        {{ contactId.charAt(0) }}
+                    </div>
+                    <div class="min-w-0">
+                        <h2 class="truncate font-semibold text-slate-900">{{ contactId }}</h2>
+                        <p class="truncate text-xs text-slate-500">Chat privado · {{ userId }}</p>
+                    </div>
+                </div>
+                <button
+                    type="button"
+                    class="grid h-10 w-10 shrink-0 place-items-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-400"
+                    aria-label="Borrar esta conversación"
+                    title="Borrar esta conversación"
+                    (click)="clearConversation()">
+                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 7h16M10 11v6m4-6v6M5 7l1 13h12l1-13M9 7V4h6v3" />
+                    </svg>
+                </button>
+            </header>
+
+            <nav class="flex gap-2 overflow-x-auto border-b border-slate-200 bg-slate-50 p-3 md:hidden" aria-label="Seleccionar contacto">
+                <button
+                    *ngFor="let user of contactUsers"
+                    type="button"
+                    class="flex shrink-0 items-center gap-2 rounded-full px-3 py-2 text-sm transition focus:outline-none focus:ring-2 focus:ring-slate-400"
+                    [ngClass]="user === contactId ? 'bg-slate-900 text-white' : 'bg-white text-slate-700 ring-1 ring-slate-200'"
+                    [attr.aria-pressed]="user === contactId"
+                    (click)="selectContact(user)">
+                    <span class="grid h-6 w-6 place-items-center rounded-full bg-slate-500/20 text-xs font-semibold">{{ user.charAt(0) }}</span>
+                    {{ user }}
+                    <span *ngIf="unreadCounts[user] > 0" class="grid h-5 min-w-5 place-items-center rounded-full bg-slate-900 px-1.5 text-xs font-semibold text-white" [attr.aria-label]="unreadCounts[user] + ' mensajes sin leer'">
+                        {{ unreadCounts[user] > 99 ? '99+' : unreadCounts[user] }}
+                    </span>
+                </button>
+            </nav>
+
+            <ul #messageContainer class="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-4 py-6 sm:px-8 lg:px-12" aria-label="Mensajes" aria-live="polite">
+                <li
+                    *ngFor="let item of messageList"
+                    class="flex w-full items-end gap-2 sm:gap-3"
+                    [ngClass]="item.message_side === 'sender' ? 'flex-row-reverse' : 'flex-row'">
+                    <div class="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-slate-200 text-xs font-semibold text-slate-600 sm:h-9 sm:w-9">
+                        {{ item.user.charAt(0).toUpperCase() }}
+                    </div>
+                    <div class="max-w-[85%] sm:max-w-[70%]">
+                        <div
+                            class="break-words rounded-2xl px-4 py-3 text-sm leading-6 shadow-sm sm:px-5"
+                            [ngClass]="item.message_side === 'sender' ? 'rounded-br-md bg-slate-950 text-white' : 'rounded-bl-md bg-slate-100 text-slate-700'">
+                            {{ item.message }}
+                        </div>
+                        <div class="mt-1 px-1 text-xs text-slate-400" [ngClass]="item.message_side === 'sender' ? 'text-right' : 'text-left'">
+                            {{ item.user }}
+                        </div>
+                    </div>
+                </li>
+            </ul>
+
+            <form class="border-t border-slate-200 bg-white p-3 sm:px-6 sm:py-4" (submit)="$event.preventDefault(); sendMessage()">
+                <div class="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm focus-within:border-slate-400 focus-within:ring-2 focus-within:ring-slate-100 sm:gap-3 sm:px-4">
+                    <input
+                        class="min-w-0 flex-1 border-0 bg-transparent px-2 py-2 text-sm text-slate-800 outline-none placeholder:text-slate-400 focus:ring-0"
+                        type="text"
+                        name="message"
+                        autocomplete="off"
+                        aria-label="Escribe un mensaje"
+                        placeholder="Escribe tu mensaje..."
+                        [(ngModel)]="messageInput" />
+                    <button
+                        class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-slate-950 text-white transition hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40"
+                        type="submit"
+                        aria-label="Enviar mensaje"
+                        [disabled]="!messageInput.trim()">
+                        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m22 2-7 20-4-9-9-4 20-7ZM22 2 11 13" />
+                        </svg>
+                    </button>
+                </div>
+            </form>
+        </main>
+
+        <aside class="hidden w-72 shrink-0 flex-col border-l border-slate-200 bg-white px-6 py-8 xl:flex">
+            <div class="flex flex-col items-center border-b border-slate-200 pb-7 text-center">
+                <div class="grid h-16 w-16 place-items-center rounded-full bg-slate-950 text-xl font-semibold text-white">
+                    {{ contactId.charAt(0) }}
+                </div>
+                <h2 class="mt-4 font-semibold text-slate-900">{{ contactId }}</h2>
+                <p class="mt-1 text-sm text-slate-500">Conversación privada</p>
+            </div>
+            <section class="border-b border-slate-200 py-6">
+                <h3 class="text-sm font-semibold text-slate-800">Tu perfil</h3>
+                <div class="mt-4 flex items-center gap-3">
+                    <div class="min-w-0">
+                        <p class="truncate text-sm font-medium text-slate-700">{{ userId }} y {{ contactId }}</p>
+                        <p class="text-xs text-emerald-600">Los mensajes se envían al contacto seleccionado</p>
+                    </div>
+                </div>
+            </section>
+            <section class="py-6">
+                <h3 class="text-sm font-semibold text-slate-800">Información</h3>
+                <p class="mt-3 text-sm leading-6 text-slate-500">
+                    Los mensajes de esta pareja se guardan en este navegador y vuelven a cargarse al abrir el chat.
+                </p>
+                <p class="mt-4 break-all rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">
+                    /chat/{{ userId }}/{{ contactId }}
+                </p>
+            </section>
+        </aside>
     </div>
 </div>

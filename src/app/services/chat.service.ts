@@ -1,84 +1,127 @@
 import { Injectable } from '@angular/core';
-import { Stomp } from '@stomp/stompjs';
+import { Stomp, StompSubscription } from '@stomp/stompjs';
 import { BehaviorSubject } from 'rxjs';
 import * as SockJS from 'sockjs-client';
 import { ChatMessage } from 'src/app/models/chat-message.interface';
 
 @Injectable({
-  	providedIn: 'root'
+	providedIn: 'root'
 })
 export class ChatService {
-
 	private stompClient: any;
-	private messageSubject: BehaviorSubject<ChatMessage[]> = new BehaviorSubject<ChatMessage[]>([]); // listener
-	private readonly localStorageKey = 'chat_messages';
-	private unreadMessagesMap: Map<string, number> = new Map<string, number>();
+	private messageSubject = new BehaviorSubject<ChatMessage[]>([]);
+	private readonly localStorageKey = 'private_chat_messages';
+	private conversations: Record<string, ChatMessage[]> = JSON.parse(localStorage.getItem(this.localStorageKey) || '{}');
+	private unreadCounts = new BehaviorSubject<Record<string, number>>({});
+	private inboxSubscription?: StompSubscription;
+	private activeConversationId = '';
+	private activeUser = '';
+	private activeContact = '';
+	private subscribedUser = '';
+	private connecting = false;
 
-	constructor(){
-		this.initConnectionSocket();
-		this.loadMessagesFromLocalStorage();
-	}
-
-	// Inicializa la conexión del socket y otros ajustes necesarios
-	initConnectionSocket(){
-		const url = '//localhost:3000/chat-socket';
-		const socket = new SockJS(url);
+	constructor() {
+		const socket = new SockJS('//localhost:3000/chat-socket');
 		this.stompClient = Stomp.over(socket);
 	}
 
-	joinRoom(roomId: string){
-		// Lógica para unirse a la sala de chat
-		this.stompClient.connect({}, () => {
-			this.stompClient.subscribe(`/topic/${roomId}`, (messages: any) => {
-				const messageContent = JSON.parse(messages.body);
-				const currentMessage = this.messageSubject.getValue();
-				currentMessage.push(messageContent);
+	openConversation(user: string, contact: string): void {
+		this.activeUser = user;
+		this.activeContact = contact;
+		this.activeConversationId = this.conversationId(user, contact);
+		const unread = this.loadUnreadCounts(user);
+		delete unread[contact];
+		this.saveUnreadCounts(user, unread);
+		this.messageSubject.next(this.conversations[this.activeConversationId] || []);
 
-				this.messageSubject.next(currentMessage ); // lsitener recibe los mensajes
-				this.saveMessagesToLocalStorage(currentMessage); // guardar en localstorage el mensaje, borrar en otro commit
-
-			})
-		})
-	}
-
-	getMessageSubject(){
-		return this.messageSubject.asObservable();
-	}
-
-	sendMessage(roomId: string, chatMessage: ChatMessage){
-		this.stompClient.send(`/app/chat/${roomId}`, {}, JSON.stringify(chatMessage));
-	}
-	
-	private saveMessagesToLocalStorage(messages: ChatMessage[]) {
-		localStorage.setItem(this.localStorageKey, JSON.stringify(messages));
-	}
-	
-	private loadMessagesFromLocalStorage() {
-		const messagesJson = localStorage.getItem(this.localStorageKey);
-		if (messagesJson) {
-		  	const messages = JSON.parse(messagesJson) as ChatMessage[];
-		  	this.messageSubject.next(messages);
+		if (this.stompClient.connected) {
+			this.subscribeToInbox(user);
+		} else if (!this.connecting) {
+			this.connecting = true;
+			this.stompClient.connect({}, () => {
+				this.connecting = false;
+				this.subscribeToInbox(this.activeUser);
+			}, (error: unknown) => {
+				this.connecting = false;
+				console.error('No se pudo conectar al chat', error);
+			});
 		}
 	}
 
-	// Método para obtener el contador de mensajes no leídos
-    getUnreadMessagesCount(roomId: string): number {
-		return this.unreadMessagesMap.get(roomId) || 0;
+	getMessageSubject() {
+		return this.messageSubject.asObservable();
 	}
 
-	incrementUnreadMessagesCount(roomId: string): void {
-		const count = this.unreadMessagesMap.get(roomId) || 0;
-		this.unreadMessagesMap.set(roomId, count + 1);
+	getUnreadCounts() {
+		return this.unreadCounts.asObservable();
 	}
 
-	// Método para restablecer el contador de mensajes no leídos
-    resetUnreadMessagesCount(roomId: string): void {
-		this.unreadMessagesMap.set(roomId, 0);
+	sendMessage(message: string): void {
+		if (!this.stompClient.connected) {
+			throw new Error('El chat todavía no está conectado.');
+		}
+
+		const chatMessage: ChatMessage = {
+			message,
+			user: this.activeUser,
+			roomId: this.activeConversationId
+		};
+		this.stompClient.send(`/app/private/${this.activeUser}/${this.activeContact}`, {}, JSON.stringify(chatMessage));
+		const messages = [...(this.conversations[this.activeConversationId] || []), chatMessage];
+		this.conversations[this.activeConversationId] = messages;
+		this.saveConversations();
+		this.messageSubject.next(messages);
 	}
 
-	clearLocalStorageData() {
-		localStorage.removeItem(this.localStorageKey);
-		// Después de eliminar del localStorage, restablece el BehaviorSubject
+	clearConversation(): void {
+		this.conversations[this.activeConversationId] = [];
+		this.saveConversations();
+		const unread = this.loadUnreadCounts(this.activeUser);
+		delete unread[this.activeContact];
+		this.saveUnreadCounts(this.activeUser, unread);
 		this.messageSubject.next([]);
+	}
+
+	private subscribeToInbox(user: string): void {
+		if (this.activeUser !== user) return;
+		if (this.subscribedUser === user) return;
+		this.inboxSubscription?.unsubscribe();
+		this.subscribedUser = user;
+		this.inboxSubscription = this.stompClient.subscribe(`/topic/users/${user.toLowerCase()}`, (frame: { body: string }) => {
+			if (this.activeUser !== user) return;
+			const message = JSON.parse(frame.body) as ChatMessage;
+			if (!message.roomId || message.user === user) return;
+			const conversationId = message.roomId;
+			const messages = [...(this.conversations[conversationId] || []), message];
+			this.conversations[conversationId] = messages;
+			this.saveConversations();
+			if (conversationId === this.activeConversationId) {
+				this.messageSubject.next(messages);
+			} else {
+				const unread = this.loadUnreadCounts(user);
+				const contact = message.user;
+				unread[contact] = (unread[contact] || 0) + 1;
+				this.saveUnreadCounts(user, unread);
+			}
+		});
+	}
+
+	private conversationId(user: string, contact: string): string {
+		return [user, contact].sort().join('-').toLowerCase();
+	}
+
+	private saveConversations(): void {
+		localStorage.setItem(this.localStorageKey, JSON.stringify(this.conversations));
+	}
+
+	private loadUnreadCounts(user: string): Record<string, number> {
+		const counts = JSON.parse(localStorage.getItem(`private_chat_unread_${user.toLowerCase()}`) || '{}') as Record<string, number>;
+		this.unreadCounts.next(counts);
+		return counts;
+	}
+
+	private saveUnreadCounts(user: string, counts: Record<string, number>): void {
+		localStorage.setItem(`private_chat_unread_${user.toLowerCase()}`, JSON.stringify(counts));
+		this.unreadCounts.next(counts);
 	}
 }
