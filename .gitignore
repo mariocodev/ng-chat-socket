@@ -38,6 +38,9 @@ yarn-error.log
 testem.log
 /typings
 
+# Environment-specific configuration (keep environment.ts as the example)
+/src/environments/environment.*.ts
+
 # System files
 .DS_Store
 Thumbs.db

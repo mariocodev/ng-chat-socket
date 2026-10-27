@@ -1,7 +1,10 @@
 import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
-import { ChatMessage } from 'src/app/models/chat-message.interface';
+import { ActivatedRoute, Router } from '@angular/router';
+import { ChatMessage, ChatUser } from 'src/app/models/chat-message.interface';
+import { AuthService } from 'src/app/services/auth.service';
 import { ChatService } from 'src/app/services/chat.service';
+
+type DisplayMessage = ChatMessage & { message_side: 'sender' | 'receiver' };
 
 @Component({
 	selector: 'app-chat',
@@ -9,86 +12,143 @@ import { ChatService } from 'src/app/services/chat.service';
 	styleUrls: ['./chat.component.scss']
 })
 export class ChatComponent implements OnInit {
-
-	messageInput: string = "";
-	userId: string = "";
-	roomId: string = "";
-	messageList: any[] = [];
-	@ViewChild('messageContainer') messageContainer: ElementRef | undefined;
-	unreadMessagesCount: number = 0;
-	notAllowed: string = "";
+	contactUsers: ChatUser[] = [];
+	currentUser?: ChatUser;
+	userId = '';
+	contactId = '';
+	messageInput = '';
+	messageList: DisplayMessage[] = [];
+	hasMore = false;
+	error = '';
+	@ViewChild('messageContainer') messageContainer?: ElementRef<HTMLElement>;
 
 	constructor(
+		private auth: AuthService,
 		private chatService: ChatService,
-		private route: ActivatedRoute
+		private route: ActivatedRoute,
+		private router: Router
 	) {}
 
 	ngOnInit(): void {
-		this.userId = this.route.snapshot.params["userId"];
-		this.route.params.subscribe(params => { this.roomId = params['roomId'];	});
-		
-		// Verificar si el usuario tiene permiso para acceder a la sala antes de suscribirse a los mensajes
-		if (this.userId && this.roomId) {
-			this.chatService.joinRoom(this.roomId);
-			this.listenerMessage();
-		} else {
-			// Si no hay usuario o roomId, redirigir a una página de error o a la página principal
-			console.log("No tienes permiso")
-		}		
-	}
-
-	ngAfterViewInit(): void {
-        this.scrollToBottom();
-    }
-
-	sendMessage() {
-		console.log("sendMessage : ", this.messageInput)
-		if (!this.messageInput) return;
-		const chatMessage = {
-			message: this.messageInput,
-			user: this.userId
-		} as ChatMessage
-
-		this.chatService.sendMessage(this.roomId, chatMessage);
-		this.messageInput = '';
-		// Después de enviar el mensaje, hacer scroll hacia el último mensaje
-		this.scrollToBottom();
-		this.unreadMessagesCount = 0;
-		this.chatService.resetUnreadMessagesCount(this.roomId);
-		
-	}
-
-	scrollToBottom() {
-        setTimeout(() => {
-			if (this.messageContainer) {
-				this.messageContainer.nativeElement.scrollTop = this.messageContainer.nativeElement.scrollHeight;
+		this.userId = this.route.snapshot.paramMap.get('userId') || '';
+		this.chatService.getMessageSubject().subscribe(messages => this.updateMessages(messages));
+		this.chatService.getHasMore().subscribe(hasMore => this.hasMore = hasMore);
+		this.chatService.getErrors().subscribe(error => this.error = error);
+		this.chatService.getUnreadRefresh().subscribe(() => this.refreshUsers());
+		this.chatService.getPresenceUpdates().subscribe(presence => {
+			this.contactUsers = this.contactUsers.map(user =>
+				user.id === presence.userId ? { ...user, online: presence.online } : user);
+			if (this.currentUser?.id === presence.userId) {
+				this.currentUser = { ...this.currentUser, online: presence.online };
 			}
-		}, 100); // Aumentamos el tiempo de espera a 100 milisegundos
-    }
-
-	listenerMessage() {
-		this.chatService.getMessageSubject().subscribe((messages: any) => {
-			console.log("messages : ", messages)
-			this.messageList = messages.map((item: any) => ({
-			  ...item,
-			  message_side: item.user === this.userId ? 'sender' : 'receiver',
-			  user: item.user === this.userId ? 'You' : item.user
-			}));
-	  
-			// Verificar si hay mensajes antes de incrementar el contador de mensajes no leídos
-			if (messages.length > 0) {
-				// Actualizar el contador de mensajes no leídos solo para los usuarios receptores
-				const isRoomFocused = this.roomId === messages.roomId;
-				if (!isRoomFocused && messages.user !== this.userId) {
-				  this.unreadMessagesCount++;
-				}
-			}
-			
+		});
+		this.chatService.getConnectionState().subscribe(online => {
+			if (this.currentUser) this.currentUser = { ...this.currentUser, online };
+		});
+		this.auth.currentUser().subscribe({
+			next: user => {
+				this.currentUser = user;
+				this.chatService.connect(user.id);
+			},
+			error: () => this.error = 'No se pudo cargar tu perfil.'
+		});
+		this.auth.users().subscribe({
+			next: users => {
+				this.contactUsers = users;
+				const routeContact = this.route.snapshot.paramMap.get('contactId');
+				this.contactId = users.some(user => user.id === routeContact)
+					? routeContact!
+					: users[0]?.id || '';
+				if (this.contactId) this.chatService.openConversation(this.userId, this.contactId);
+				if (this.contactId !== routeContact) this.updateUrl();
+			},
+			error: () => this.error = 'No se pudo cargar la lista de usuarios.'
 		});
 	}
 
-	clearLocalStorage() {
-		this.unreadMessagesCount = 0;
-		this.chatService.clearLocalStorageData();
+	selectContact(contact: ChatUser): void {
+		if (!this.contactUsers.some(user => user.id === contact.id)) return;
+		this.contactId = contact.id;
+		this.contactUsers = this.contactUsers.map(user => user.id === contact.id ? { ...user, unreadCount: 0 } : user);
+		this.messageInput = '';
+		this.chatService.openConversation(this.userId, contact.id);
+		this.updateUrl();
+	}
+
+	sendMessage(): void {
+		const message = this.messageInput.trim();
+		if (!message) return;
+
+		try {
+			this.chatService.sendMessage(message);
+			this.messageInput = '';
+			this.error = '';
+		} catch (error) {
+			this.error = error instanceof Error ? error.message : 'No se pudo enviar el mensaje.';
+		}
+	}
+
+	clearConversation(): void {
+		this.chatService.clearConversation();
+	}
+
+	logout(): void {
+		this.auth.logout().subscribe({
+			next: () => {
+				this.chatService.disconnect();
+				this.router.navigate(['/']);
+			},
+			error: () => this.error = 'No se pudo cerrar sesión. Intenta nuevamente.'
+		});
+	}
+
+	loadOlderMessages(): void {
+		this.chatService.loadOlderMessages();
+	}
+
+	scrollToBottom(): void {
+		setTimeout(() => {
+			if (this.messageContainer) {
+				this.messageContainer.nativeElement.scrollTop = this.messageContainer.nativeElement.scrollHeight;
+			}
+		});
+	}
+
+	private updateMessages(messages: ChatMessage[]): void {
+		const shouldScroll = messages[messages.length - 1]?.id !== this.messageList[this.messageList.length - 1]?.id;
+		this.messageList = messages.map(message => ({
+			...message,
+			message_side: message.user === this.userId ? 'sender' : 'receiver'
+		}));
+		if (shouldScroll) this.scrollToBottom();
+	}
+
+	private refreshUsers(): void {
+		this.auth.users().subscribe({
+			next: users => this.contactUsers = users,
+			error: () => this.error = 'No se pudo actualizar la lista de usuarios.'
+		});
+	}
+
+	displayName(userId: string): string {
+		return this.userFor(userId)?.name || 'Usuario';
+	}
+
+	userPicture(userId: string): string | null {
+		return this.userFor(userId)?.picture || null;
+	}
+
+	private userFor(userId: string): ChatUser | undefined {
+		return this.currentUser?.id === userId
+			? this.currentUser
+			: this.contactUsers.find(user => user.id === userId);
+	}
+
+	get contact(): ChatUser | undefined {
+		return this.contactUsers.find(user => user.id === this.contactId);
+	}
+
+	private updateUrl(): void {
+		this.router.navigate(['/chat', this.userId, this.contactId]);
 	}
 }
