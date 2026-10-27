@@ -20,6 +20,10 @@ Run `ng build` to build the project. The build artifacts will be stored in the `
 
 The workflow deploys on pushes to `main` or can be started manually from the Actions tab. Set the repository variable `API_URL` to the public backend URL, then set **Settings → Pages → Build and deployment → Source** to **GitHub Actions**.
 
+## Vercel deployment
+
+Import the repository into Vercel and set the `API_URL` environment variable to the HTTPS URL of the backend for each deployment environment. `vercel.json` configures the production build, static output directory, and Angular route fallback.
+
 ## Running unit tests
 
 Run `ng test` to execute the unit tests via [Karma](https://karma-runner.github.io).

@@ -1,0 +1,11 @@
+{
+  "framework": "angular",
+  "buildCommand": "npm run build:vercel",
+  "outputDirectory": "dist/ng-chat-socket/browser",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
