@@ -10,20 +10,20 @@
                     *ngFor="let user of contactUsers"
                     type="button"
                     class="flex w-full items-center gap-3 rounded-xl p-3 text-left transition focus:outline-none focus:ring-2 focus:ring-slate-400"
-                    [ngClass]="user === contactId ? 'bg-white shadow-sm ring-1 ring-slate-200' : 'hover:bg-white/70'"
-                    [attr.aria-pressed]="user === contactId"
+                    [ngClass]="user.id === contactId ? 'bg-white shadow-sm ring-1 ring-slate-200' : 'hover:bg-white/70'"
+                    [attr.aria-pressed]="user.id === contactId"
                     (click)="selectContact(user)">
                     <span class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-slate-900 text-sm font-semibold text-white">
-                        {{ user.charAt(0) }}
+                        <img *ngIf="user.picture" class="h-10 w-10 rounded-full object-cover" [src]="user.picture" alt="" />
+                        <span *ngIf="!user.picture">{{ user.name.charAt(0).toUpperCase() }}</span>
                     </span>
                     <span class="min-w-0 flex-1">
-                        <span class="block truncate text-sm font-medium text-slate-800">{{ user }}</span>
-                        <span class="mt-1 block truncate text-xs text-slate-500">Conversación privada</span>
+                        <span class="block truncate text-sm font-medium text-slate-800">{{ user.name }}</span>
+                        <span class="mt-1 block truncate text-xs text-slate-500">{{ user.email }}</span>
                     </span>
-                    <span *ngIf="unreadCounts[user] > 0" class="grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-slate-900 px-1.5 text-xs font-semibold text-white" [attr.aria-label]="unreadCounts[user] + ' mensajes sin leer'">
-                        {{ unreadCounts[user] > 99 ? '99+' : unreadCounts[user] }}
+                    <span *ngIf="unreadCounts[user.id] > 0" class="grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-slate-900 px-1.5 text-xs font-semibold text-white" [attr.aria-label]="unreadCounts[user.id] + ' mensajes sin leer'">
+                        {{ unreadCounts[user.id] > 99 ? '99+' : unreadCounts[user.id] }}
                     </span>
-                    <span *ngIf="unreadCounts[user] === 0 && user === contactId" class="h-2 w-2 shrink-0 rounded-full bg-emerald-500"></span>
                 </button>
             </nav>
         </aside>
@@ -32,11 +32,12 @@
             <header class="flex min-h-16 items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 sm:px-6">
                 <div class="flex min-w-0 items-center gap-3">
                     <div class="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-slate-900 text-sm font-semibold text-white">
-                        {{ contactId.charAt(0) }}
+                        <img *ngIf="contact?.picture" class="h-10 w-10 rounded-full object-cover" [src]="contact?.picture" alt="" />
+                        <span *ngIf="!contact?.picture">{{ contact?.name?.charAt(0) }}</span>
                     </div>
                     <div class="min-w-0">
-                        <h2 class="truncate font-semibold text-slate-900">{{ contactId }}</h2>
-                        <p class="truncate text-xs text-slate-500">Chat privado · {{ userId }}</p>
+                        <h2 class="truncate font-semibold text-slate-900">{{ contact?.name || 'Sin otros usuarios' }}</h2>
+                        <p class="truncate text-xs text-slate-500">{{ contact?.email || 'Cuando alguien se registre, aparecerá en la lista.' }}</p>
                     </div>
                 </div>
                 <button
@@ -56,13 +57,13 @@
                     *ngFor="let user of contactUsers"
                     type="button"
                     class="flex shrink-0 items-center gap-2 rounded-full px-3 py-2 text-sm transition focus:outline-none focus:ring-2 focus:ring-slate-400"
-                    [ngClass]="user === contactId ? 'bg-slate-900 text-white' : 'bg-white text-slate-700 ring-1 ring-slate-200'"
-                    [attr.aria-pressed]="user === contactId"
+                    [ngClass]="user.id === contactId ? 'bg-slate-900 text-white' : 'bg-white text-slate-700 ring-1 ring-slate-200'"
+                    [attr.aria-pressed]="user.id === contactId"
                     (click)="selectContact(user)">
-                    <span class="grid h-6 w-6 place-items-center rounded-full bg-slate-500/20 text-xs font-semibold">{{ user.charAt(0) }}</span>
-                    {{ user }}
-                    <span *ngIf="unreadCounts[user] > 0" class="grid h-5 min-w-5 place-items-center rounded-full bg-slate-900 px-1.5 text-xs font-semibold text-white" [attr.aria-label]="unreadCounts[user] + ' mensajes sin leer'">
-                        {{ unreadCounts[user] > 99 ? '99+' : unreadCounts[user] }}
+                    <span class="grid h-6 w-6 place-items-center rounded-full bg-slate-500/20 text-xs font-semibold">{{ user.name.charAt(0).toUpperCase() }}</span>
+                    {{ user.name }}
+                    <span *ngIf="unreadCounts[user.id] > 0" class="grid h-5 min-w-5 place-items-center rounded-full bg-slate-900 px-1.5 text-xs font-semibold text-white" [attr.aria-label]="unreadCounts[user.id] + ' mensajes sin leer'">
+                        {{ unreadCounts[user.id] > 99 ? '99+' : unreadCounts[user.id] }}
                     </span>
                 </button>
             </nav>
@@ -73,7 +74,7 @@
                     class="flex w-full items-end gap-2 sm:gap-3"
                     [ngClass]="item.message_side === 'sender' ? 'flex-row-reverse' : 'flex-row'">
                     <div class="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-slate-200 text-xs font-semibold text-slate-600 sm:h-9 sm:w-9">
-                        {{ item.user.charAt(0).toUpperCase() }}
+                        {{ displayName(item.user).charAt(0).toUpperCase() }}
                     </div>
                     <div class="max-w-[85%] sm:max-w-[70%]">
                         <div
@@ -82,12 +83,13 @@
                             {{ item.message }}
                         </div>
                         <div class="mt-1 px-1 text-xs text-slate-400" [ngClass]="item.message_side === 'sender' ? 'text-right' : 'text-left'">
-                            {{ item.user }}
+                            {{ displayName(item.user) }}
                         </div>
                     </div>
                 </li>
             </ul>
 
+            <p *ngIf="error" class="px-4 py-2 text-center text-sm text-red-600" role="alert">{{ error }}</p>
             <form class="border-t border-slate-200 bg-white p-3 sm:px-6 sm:py-4" (submit)="$event.preventDefault(); sendMessage()">
                 <div class="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm focus-within:border-slate-400 focus-within:ring-2 focus-within:ring-slate-100 sm:gap-3 sm:px-4">
                     <input
@@ -102,7 +104,7 @@
                         class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-slate-950 text-white transition hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40"
                         type="submit"
                         aria-label="Enviar mensaje"
-                        [disabled]="!messageInput.trim()">
+                        [disabled]="!messageInput.trim() || !contactId">
                         <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" d="m22 2-7 20-4-9-9-4 20-7ZM22 2 11 13" />
                         </svg>
@@ -114,16 +116,16 @@
         <aside class="hidden w-72 shrink-0 flex-col border-l border-slate-200 bg-white px-6 py-8 xl:flex">
             <div class="flex flex-col items-center border-b border-slate-200 pb-7 text-center">
                 <div class="grid h-16 w-16 place-items-center rounded-full bg-slate-950 text-xl font-semibold text-white">
-                    {{ contactId.charAt(0) }}
+                    {{ contact?.name?.charAt(0) }}
                 </div>
-                <h2 class="mt-4 font-semibold text-slate-900">{{ contactId }}</h2>
+                <h2 class="mt-4 font-semibold text-slate-900">{{ contact?.name }}</h2>
                 <p class="mt-1 text-sm text-slate-500">Conversación privada</p>
             </div>
             <section class="border-b border-slate-200 py-6">
                 <h3 class="text-sm font-semibold text-slate-800">Tu perfil</h3>
                 <div class="mt-4 flex items-center gap-3">
                     <div class="min-w-0">
-                        <p class="truncate text-sm font-medium text-slate-700">{{ userId }} y {{ contactId }}</p>
+                        <p class="truncate text-sm font-medium text-slate-700">{{ contact?.email }}</p>
                         <p class="text-xs text-emerald-600">Los mensajes se envían al contacto seleccionado</p>
                     </div>
                 </div>

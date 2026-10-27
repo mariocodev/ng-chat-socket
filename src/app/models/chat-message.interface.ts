@@ -4,4 +4,9 @@ export interface ChatMessage {
     roomId?: string;
 }
 
-export const CHAT_USERS = ['Bart', 'Lisa', 'Homero', 'Marge'] as const;
+export interface ChatUser {
+    id: string;
+    name: string;
+    email: string;
+    picture: string | null;
+}

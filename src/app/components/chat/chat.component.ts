@@ -1,6 +1,7 @@
 import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { ChatMessage, CHAT_USERS } from 'src/app/models/chat-message.interface';
+import { ChatMessage, ChatUser } from 'src/app/models/chat-message.interface';
+import { AuthService } from 'src/app/services/auth.service';
 import { ChatService } from 'src/app/services/chat.service';
 
 type DisplayMessage = ChatMessage & { message_side: 'sender' | 'receiver' };
@@ -11,43 +12,45 @@ type DisplayMessage = ChatMessage & { message_side: 'sender' | 'receiver' };
 	styleUrls: ['./chat.component.scss']
 })
 export class ChatComponent implements OnInit {
-	readonly users = CHAT_USERS;
-	contactUsers: readonly string[] = [];
-	userId = 'Bart';
-	contactId = 'Lisa';
+	contactUsers: ChatUser[] = [];
+	userId = '';
+	contactId = '';
 	messageInput = '';
 	messageList: DisplayMessage[] = [];
 	unreadCounts: Record<string, number> = {};
+	error = '';
 	@ViewChild('messageContainer') messageContainer?: ElementRef<HTMLElement>;
 
 	constructor(
+		private auth: AuthService,
 		private chatService: ChatService,
 		private route: ActivatedRoute,
 		private router: Router
 	) {}
 
 	ngOnInit(): void {
-		const routeUser = this.route.snapshot.paramMap.get('userId') || '';
-		const routeContact = this.route.snapshot.paramMap.get('contactId') || '';
-		this.userId = this.users.find(user => user.toLowerCase() === routeUser.toLowerCase()) || 'Bart';
-		this.contactUsers = this.users.filter(user => user !== this.userId);
-		this.contactId = this.users.find(user => user.toLowerCase() === routeContact.toLowerCase() && user !== this.userId)
-			|| this.users.find(user => user !== this.userId)!;
-
+		this.userId = this.route.snapshot.paramMap.get('userId') || '';
 		this.chatService.getMessageSubject().subscribe(messages => this.updateMessages(messages));
 		this.chatService.getUnreadCounts().subscribe(counts => this.unreadCounts = counts);
-		this.chatService.openConversation(this.userId, this.contactId);
-
-		if (routeUser !== this.userId || routeContact !== this.contactId) {
-			this.updateUrl();
-		}
+		this.auth.users().subscribe({
+			next: users => {
+				this.contactUsers = users;
+				const routeContact = this.route.snapshot.paramMap.get('contactId');
+				this.contactId = users.some(user => user.id === routeContact)
+					? routeContact!
+					: users[0]?.id || '';
+				if (this.contactId) this.chatService.openConversation(this.userId, this.contactId);
+				if (this.contactId !== routeContact) this.updateUrl();
+			},
+			error: () => this.error = 'No se pudo cargar la lista de usuarios.'
+		});
 	}
 
-	selectContact(contact: string): void {
-		if (contact === this.userId || !this.users.some(user => user === contact)) return;
-		this.contactId = contact;
+	selectContact(contact: ChatUser): void {
+		if (!this.contactUsers.some(user => user.id === contact.id)) return;
+		this.contactId = contact.id;
 		this.messageInput = '';
-		this.chatService.openConversation(this.userId, contact);
+		this.chatService.openConversation(this.userId, contact.id);
 		this.updateUrl();
 	}
 
@@ -55,8 +58,13 @@ export class ChatComponent implements OnInit {
 		const message = this.messageInput.trim();
 		if (!message) return;
 
-		this.chatService.sendMessage(message);
-		this.messageInput = '';
+		try {
+			this.chatService.sendMessage(message);
+			this.messageInput = '';
+			this.error = '';
+		} catch (error) {
+			this.error = error instanceof Error ? error.message : 'No se pudo enviar el mensaje.';
+		}
 	}
 
 	clearConversation(): void {
@@ -77,6 +85,14 @@ export class ChatComponent implements OnInit {
 			message_side: message.user === this.userId ? 'sender' : 'receiver'
 		}));
 		this.scrollToBottom();
+	}
+
+	displayName(userId: string): string {
+		return this.contactUsers.find(user => user.id === userId)?.name || userId;
+	}
+
+	get contact(): ChatUser | undefined {
+		return this.contactUsers.find(user => user.id === this.contactId);
 	}
 
 	private updateUrl(): void {

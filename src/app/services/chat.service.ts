@@ -10,8 +10,8 @@ import { ChatMessage } from 'src/app/models/chat-message.interface';
 export class ChatService {
 	private stompClient: any;
 	private messageSubject = new BehaviorSubject<ChatMessage[]>([]);
-	private readonly localStorageKey = 'private_chat_messages';
-	private conversations: Record<string, ChatMessage[]> = JSON.parse(localStorage.getItem(this.localStorageKey) || '{}');
+	private conversations: Record<string, ChatMessage[]> = {};
+	private localStorageKey = '';
 	private unreadCounts = new BehaviorSubject<Record<string, number>>({});
 	private inboxSubscription?: StompSubscription;
 	private activeConversationId = '';
@@ -20,15 +20,19 @@ export class ChatService {
 	private subscribedUser = '';
 	private connecting = false;
 
-	constructor() {
-		const socket = new SockJS('//localhost:3000/chat-socket');
-		this.stompClient = Stomp.over(socket);
-	}
-
 	openConversation(user: string, contact: string): void {
+		if (!this.stompClient) {
+			const socket = new SockJS('//localhost:3000/chat-socket');
+			this.stompClient = Stomp.over(socket);
+		}
+
 		this.activeUser = user;
 		this.activeContact = contact;
 		this.activeConversationId = this.conversationId(user, contact);
+		if (this.localStorageKey !== `private_chat_messages_${user}`) {
+			this.localStorageKey = `private_chat_messages_${user}`;
+			this.conversations = JSON.parse(localStorage.getItem(this.localStorageKey) || '{}') as Record<string, ChatMessage[]>;
+		}
 		const unread = this.loadUnreadCounts(user);
 		delete unread[contact];
 		this.saveUnreadCounts(user, unread);
@@ -57,7 +61,7 @@ export class ChatService {
 	}
 
 	sendMessage(message: string): void {
-		if (!this.stompClient.connected) {
+		if (!this.stompClient?.connected) {
 			throw new Error('El chat todavía no está conectado.');
 		}
 
@@ -87,7 +91,7 @@ export class ChatService {
 		if (this.subscribedUser === user) return;
 		this.inboxSubscription?.unsubscribe();
 		this.subscribedUser = user;
-		this.inboxSubscription = this.stompClient.subscribe(`/topic/users/${user.toLowerCase()}`, (frame: { body: string }) => {
+		this.inboxSubscription = this.stompClient.subscribe(`/topic/users/${encodeURIComponent(user)}`, (frame: { body: string }) => {
 			if (this.activeUser !== user) return;
 			const message = JSON.parse(frame.body) as ChatMessage;
 			if (!message.roomId || message.user === user) return;
@@ -115,13 +119,13 @@ export class ChatService {
 	}
 
 	private loadUnreadCounts(user: string): Record<string, number> {
-		const counts = JSON.parse(localStorage.getItem(`private_chat_unread_${user.toLowerCase()}`) || '{}') as Record<string, number>;
+		const counts = JSON.parse(localStorage.getItem(`private_chat_unread_${user}`) || '{}') as Record<string, number>;
 		this.unreadCounts.next(counts);
 		return counts;
 	}
 
 	private saveUnreadCounts(user: string, counts: Record<string, number>): void {
-		localStorage.setItem(`private_chat_unread_${user.toLowerCase()}`, JSON.stringify(counts));
+		localStorage.setItem(`private_chat_unread_${user}`, JSON.stringify(counts));
 		this.unreadCounts.next(counts);
 	}
 }

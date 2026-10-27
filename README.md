@@ -6,7 +6,7 @@ This project was generated with [Angular CLI](https://github.com/angular/angular
 
 Run `ng serve` for a dev server. Navigate to `http://localhost:4200/`. The application will automatically reload if you change any of the source files.
 
-Open `http://localhost:4200/chat/Bart/Lisa` to chat as Bart. Select Lisa, Homero, or Marge to switch private conversations; each conversation is saved in the browser and restored when selected again.
+The home page signs in through Google. After signing in, users who have previously logged in appear in the contact list; each private conversation remains at `/chat/:userId/:contactId` and is saved in this browser.
 
 ## Code scaffolding
 
