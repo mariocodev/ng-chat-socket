@@ -1,0 +1,54 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Configure production environment
+        env:
+          API_URL: ${{ vars.API_URL }}
+        run: |
+          if [ -z "$API_URL" ]; then
+            echo "Configure the API_URL repository variable before deploying." >&2
+            exit 1
+          fi
+          node -e 'const fs = require("node:fs"); fs.writeFileSync("src/environments/environment.production.ts", `export const environment = ${JSON.stringify({ production: true, apiUrl: process.env.API_URL })};\n`);'
+
+      - name: Build Angular app
+        run: |
+          npm run build -- --base-href=/ng-chat-socket/
+          cp dist/ng-chat-socket/browser/index.html dist/ng-chat-socket/browser/404.html
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist/ng-chat-socket/browser
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

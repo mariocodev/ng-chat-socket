@@ -16,6 +16,10 @@ Run `ng generate component component-name` to generate a new component. You can 
 
 Run `ng build` to build the project. The build artifacts will be stored in the `dist/` directory.
 
+## GitHub Pages deployment
+
+The workflow deploys on pushes to `main` or can be started manually from the Actions tab. Set the repository variable `API_URL` to the public backend URL, then set **Settings → Pages → Build and deployment → Source** to **GitHub Actions**.
+
 ## Running unit tests
 
 Run `ng test` to execute the unit tests via [Karma](https://karma-runner.github.io).
