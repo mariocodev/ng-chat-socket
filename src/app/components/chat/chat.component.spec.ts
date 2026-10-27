@@ -41,4 +41,11 @@ describe('ChatComponent', () => {
   it('should create', () => {
     expect(component).toBeTruthy();
   });
+
+  it('shows fallback initials after a profile image fails to load', () => {
+    component.onPictureError('https://example.com/avatar.png');
+
+    expect(component.hasPicture('https://example.com/avatar.png')).toBeFalse();
+    expect(component.hasPicture(null)).toBeFalse();
+  });
 });

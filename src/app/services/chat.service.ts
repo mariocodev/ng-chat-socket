@@ -2,9 +2,9 @@ import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Stomp, StompSubscription } from '@stomp/stompjs';
 import { BehaviorSubject, Observable, Subject, switchMap } from 'rxjs';
-import SockJS from 'sockjs-client';
-import { ChatMessage, ChatRoom, MessagePage, UserPresence } from 'src/app/models/chat-message.interface';
-import { environment } from 'src/environments/environment';
+import * as SockJS from 'sockjs-client';
+import { ChatMessage, ChatRoom, MessagePage, UserPresence } from '../models/chat-message.interface';
+import { environment } from '../../environments/environment';
 
 @Injectable({
 	providedIn: 'root'

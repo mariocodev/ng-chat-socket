@@ -14,8 +14,8 @@
                     [attr.aria-pressed]="user.id === contactId"
                     (click)="selectContact(user)">
                     <span class="relative grid h-10 w-10 shrink-0 place-items-center rounded-full bg-slate-900 text-sm font-semibold text-white">
-                        <img *ngIf="user.picture" class="h-10 w-10 rounded-full object-cover" [src]="user.picture" alt="" />
-                        <span *ngIf="!user.picture">{{ user.name.charAt(0).toUpperCase() }}</span>
+                        <img *ngIf="hasPicture(user.picture)" class="h-10 w-10 rounded-full object-cover" [src]="user.picture" (error)="onPictureError(user.picture)" alt="" />
+                        <span *ngIf="!hasPicture(user.picture)">{{ user.name.charAt(0).toUpperCase() }}</span>
                         <span *ngIf="user.online" class="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-slate-50 bg-emerald-500" aria-label="En línea"></span>
                     </span>
                     <span class="min-w-0 flex-1">
@@ -34,8 +34,8 @@
                 <details class="relative">
                     <summary class="flex cursor-pointer list-none items-center gap-3 rounded-xl p-3 transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-slate-400">
                         <span class="relative grid h-10 w-10 shrink-0 place-items-center rounded-full bg-slate-900 text-sm font-semibold text-white">
-                            <img *ngIf="currentUser?.picture" class="h-10 w-10 rounded-full object-cover" [src]="currentUser?.picture" alt="" />
-                            <span *ngIf="!currentUser?.picture">{{ currentUser?.name?.charAt(0)?.toUpperCase() || '?' }}</span>
+                            <img *ngIf="hasPicture(currentUser?.picture)" class="h-10 w-10 rounded-full object-cover" [src]="currentUser?.picture" (error)="onPictureError(currentUser?.picture)" alt="" />
+                            <span *ngIf="!hasPicture(currentUser?.picture)">{{ currentUser?.name?.charAt(0)?.toUpperCase() || '?' }}</span>
                             <span *ngIf="currentUser?.online" class="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-slate-50 bg-emerald-500" aria-label="En línea"></span>
                         </span>
                         <span class="min-w-0 flex-1">
@@ -62,8 +62,8 @@
             <header class="flex min-h-16 items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 sm:px-6">
                 <div class="flex min-w-0 items-center gap-3">
                     <div class="relative grid h-10 w-10 shrink-0 place-items-center rounded-full bg-slate-900 text-sm font-semibold text-white">
-                        <img *ngIf="contact?.picture" class="h-10 w-10 rounded-full object-cover" [src]="contact?.picture" alt="" />
-                        <span *ngIf="!contact?.picture">{{ contact?.name?.charAt(0)?.toUpperCase() || '?' }}</span>
+                        <img *ngIf="hasPicture(contact?.picture)" class="h-10 w-10 rounded-full object-cover" [src]="contact?.picture" (error)="onPictureError(contact?.picture)" alt="" />
+                        <span *ngIf="!hasPicture(contact?.picture)">{{ contact?.name?.charAt(0)?.toUpperCase() || '?' }}</span>
                         <span *ngIf="contact?.online" class="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white bg-emerald-500" aria-label="En línea"></span>
                     </div>
                     <div class="min-w-0">
@@ -88,8 +88,8 @@
                     <details class="relative md:hidden">
                         <summary class="grid h-10 w-10 cursor-pointer list-none place-items-center rounded-full bg-slate-100 text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-400">
                             <span class="relative grid h-8 w-8 place-items-center rounded-full bg-slate-900 text-white">
-                                <img *ngIf="currentUser?.picture" class="h-8 w-8 rounded-full object-cover" [src]="currentUser?.picture" alt="" />
-                                <span *ngIf="!currentUser?.picture">{{ currentUser?.name?.charAt(0)?.toUpperCase() || '?' }}</span>
+                                <img *ngIf="hasPicture(currentUser?.picture)" class="h-8 w-8 rounded-full object-cover" [src]="currentUser?.picture" (error)="onPictureError(currentUser?.picture)" alt="" />
+                                <span *ngIf="!hasPicture(currentUser?.picture)">{{ currentUser?.name?.charAt(0)?.toUpperCase() || '?' }}</span>
                                 <span *ngIf="currentUser?.online" class="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-500" aria-label="En línea"></span>
                             </span>
                         </summary>
@@ -114,8 +114,8 @@
                     [attr.aria-pressed]="user.id === contactId"
                     (click)="selectContact(user)">
                     <span class="relative grid h-6 w-6 place-items-center rounded-full bg-slate-500/20 text-xs font-semibold">
-                        <img *ngIf="user.picture" class="h-6 w-6 rounded-full object-cover" [src]="user.picture" alt="" />
-                        <span *ngIf="!user.picture">{{ user.name.charAt(0).toUpperCase() }}</span>
+                        <img *ngIf="hasPicture(user.picture)" class="h-6 w-6 rounded-full object-cover" [src]="user.picture" (error)="onPictureError(user.picture)" alt="" />
+                        <span *ngIf="!hasPicture(user.picture)">{{ user.name.charAt(0).toUpperCase() }}</span>
                         <span *ngIf="user.online" class="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border border-white bg-emerald-500" aria-label="En línea"></span>
                     </span>
                     {{ user.name }}
@@ -136,8 +136,8 @@
                     class="flex w-full items-end gap-2 sm:gap-3"
                     [ngClass]="item.message_side === 'sender' ? 'flex-row-reverse' : 'flex-row'">
                     <div class="grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-full bg-slate-200 text-xs font-semibold text-slate-600 sm:h-9 sm:w-9">
-                        <img *ngIf="userPicture(item.user) as picture" class="h-full w-full object-cover" [src]="picture" alt="" />
-                        <span *ngIf="!userPicture(item.user)">{{ displayName(item.user).charAt(0).toUpperCase() }}</span>
+                        <img *ngIf="hasPicture(userPicture(item.user))" class="h-full w-full object-cover" [src]="userPicture(item.user)" (error)="onPictureError(userPicture(item.user))" alt="" />
+                        <span *ngIf="!hasPicture(userPicture(item.user))">{{ displayName(item.user).charAt(0).toUpperCase() }}</span>
                     </div>
                     <div class="max-w-[85%] sm:max-w-[70%]">
                         <div
@@ -179,8 +179,8 @@
         <aside class="hidden w-72 shrink-0 flex-col border-l border-slate-200 bg-white px-6 py-8 xl:flex">
             <div class="flex flex-col items-center border-b border-slate-200 pb-7 text-center">
                 <div class="relative grid h-16 w-16 place-items-center overflow-hidden rounded-full bg-slate-950 text-xl font-semibold text-white">
-                    <img *ngIf="contact?.picture" class="h-full w-full object-cover" [src]="contact?.picture" alt="" />
-                    <span *ngIf="!contact?.picture">{{ contact?.name?.charAt(0)?.toUpperCase() || '?' }}</span>
+                    <img *ngIf="hasPicture(contact?.picture)" class="h-full w-full object-cover" [src]="contact?.picture" (error)="onPictureError(contact?.picture)" alt="" />
+                    <span *ngIf="!hasPicture(contact?.picture)">{{ contact?.name?.charAt(0)?.toUpperCase() || '?' }}</span>
                     <span *ngIf="contact?.online" class="absolute bottom-1 right-1 h-3.5 w-3.5 rounded-full border-2 border-white bg-emerald-500" aria-label="En línea"></span>
                 </div>
                 <h2 class="mt-4 font-semibold text-slate-900">{{ contact?.name }}</h2>

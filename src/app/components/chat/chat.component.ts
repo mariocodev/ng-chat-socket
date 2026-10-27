@@ -1,8 +1,8 @@
 import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { ChatMessage, ChatUser } from 'src/app/models/chat-message.interface';
-import { AuthService } from 'src/app/services/auth.service';
-import { ChatService } from 'src/app/services/chat.service';
+import { ChatMessage, ChatUser } from '../../models/chat-message.interface';
+import { AuthService } from '../../services/auth.service';
+import { ChatService } from '../../services/chat.service';
 
 type DisplayMessage = ChatMessage & { message_side: 'sender' | 'receiver' };
 
@@ -18,6 +18,7 @@ export class ChatComponent implements OnInit {
 	contactId = '';
 	messageInput = '';
 	messageList: DisplayMessage[] = [];
+	private failedPictures = new Set<string>();
 	hasMore = false;
 	error = '';
 	@ViewChild('messageContainer') messageContainer?: ElementRef<HTMLElement>;
@@ -136,6 +137,15 @@ export class ChatComponent implements OnInit {
 
 	userPicture(userId: string): string | null {
 		return this.userFor(userId)?.picture || null;
+	}
+
+	hasPicture(picture: string | null | undefined): picture is string {
+		return !!picture && !this.failedPictures.has(picture);
+	}
+
+	onPictureError(picture: string | null | undefined): void {
+		if (!picture) return;
+		this.failedPictures = new Set(this.failedPictures).add(picture);
 	}
 
 	private userFor(userId: string): ChatUser | undefined {
