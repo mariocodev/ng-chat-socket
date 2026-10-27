@@ -1,8 +1,10 @@
+import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Stomp, StompSubscription } from '@stomp/stompjs';
-import { BehaviorSubject } from 'rxjs';
-import * as SockJS from 'sockjs-client';
-import { ChatMessage } from 'src/app/models/chat-message.interface';
+import { BehaviorSubject, Observable, Subject, switchMap } from 'rxjs';
+import SockJS from 'sockjs-client';
+import { ChatMessage, ChatRoom, MessagePage, UserPresence } from 'src/app/models/chat-message.interface';
+import { environment } from 'src/environments/environment';
 
 @Injectable({
 	providedIn: 'root'
@@ -10,34 +12,124 @@ import { ChatMessage } from 'src/app/models/chat-message.interface';
 export class ChatService {
 	private stompClient: any;
 	private messageSubject = new BehaviorSubject<ChatMessage[]>([]);
-	private conversations: Record<string, ChatMessage[]> = {};
-	private localStorageKey = '';
-	private unreadCounts = new BehaviorSubject<Record<string, number>>({});
-	private inboxSubscription?: StompSubscription;
-	private activeConversationId = '';
+	private hasMoreSubject = new BehaviorSubject(false);
+	private unreadRefreshSubject = new Subject<void>();
+	private presenceSubject = new Subject<UserPresence>();
+	private connectionSubject = new BehaviorSubject(false);
+	private errorSubject = new BehaviorSubject('');
+	private activeRoomId = '';
 	private activeUser = '';
 	private activeContact = '';
+	private page = 0;
+	private inboxSubscription?: StompSubscription;
+	private presenceSubscription?: StompSubscription;
 	private subscribedUser = '';
 	private connecting = false;
 
-	openConversation(user: string, contact: string): void {
-		if (!this.stompClient) {
-			const socket = new SockJS('//localhost:3000/chat-socket');
-			this.stompClient = Stomp.over(socket);
-		}
+	constructor(private http: HttpClient) {}
 
+	openConversation(user: string, contact: string): void {
 		this.activeUser = user;
 		this.activeContact = contact;
-		this.activeConversationId = this.conversationId(user, contact);
-		if (this.localStorageKey !== `private_chat_messages_${user}`) {
-			this.localStorageKey = `private_chat_messages_${user}`;
-			this.conversations = JSON.parse(localStorage.getItem(this.localStorageKey) || '{}') as Record<string, ChatMessage[]>;
-		}
-		const unread = this.loadUnreadCounts(user);
-		delete unread[contact];
-		this.saveUnreadCounts(user, unread);
-		this.messageSubject.next(this.conversations[this.activeConversationId] || []);
+		this.activeRoomId = '';
+		this.page = 0;
+		this.messageSubject.next([]);
+		this.hasMoreSubject.next(false);
+		this.errorSubject.next('');
+		this.connectInbox(user);
 
+		this.withCsrf(token => this.http.post<ChatRoom>(
+				`${environment.apiUrl}/api/rooms/private`,
+				{ contactId: contact },
+				{ withCredentials: true, headers: new HttpHeaders({ 'X-XSRF-TOKEN': token }) }
+			)).subscribe({
+			next: room => {
+				if (this.activeUser !== user || this.activeContact !== contact) return;
+				this.activeRoomId = room.id;
+				this.loadPage(0, room.id, false);
+			},
+			error: error => this.fail(error, 'No se pudo abrir la conversación.')
+		});
+	}
+
+	getMessageSubject(): Observable<ChatMessage[]> {
+		return this.messageSubject.asObservable();
+	}
+
+	getHasMore(): Observable<boolean> {
+		return this.hasMoreSubject.asObservable();
+	}
+
+	getUnreadRefresh(): Observable<void> {
+		return this.unreadRefreshSubject.asObservable();
+	}
+
+	getPresenceUpdates(): Observable<UserPresence> {
+		return this.presenceSubject.asObservable();
+	}
+
+	getConnectionState(): Observable<boolean> {
+		return this.connectionSubject.asObservable();
+	}
+
+	getErrors(): Observable<string> {
+		return this.errorSubject.asObservable();
+	}
+
+	connect(user: string): void {
+		this.activeUser = user;
+		this.connectInbox(user);
+	}
+
+	sendMessage(message: string): void {
+		if (!this.stompClient?.connected || !this.activeRoomId) {
+			throw new Error('La conversación todavía se está preparando.');
+		}
+
+		this.stompClient.send(
+			`/app/private/${encodeURIComponent(this.activeUser)}/${encodeURIComponent(this.activeContact)}`,
+			{},
+			JSON.stringify({ message })
+		);
+	}
+
+	loadOlderMessages(): void {
+		if (!this.activeRoomId || !this.hasMoreSubject.value) return;
+		this.loadPage(this.page + 1, this.activeRoomId, true);
+	}
+
+	clearConversation(): void {
+		if (!this.activeRoomId) return;
+		this.withCsrf(token => this.http.delete<void>(
+			`${environment.apiUrl}/api/rooms/${this.activeRoomId}/messages`,
+			{ withCredentials: true, headers: new HttpHeaders({ 'X-XSRF-TOKEN': token }) }
+		)).subscribe({
+			next: () => {
+				this.messageSubject.next([]);
+				this.page = 0;
+				this.hasMoreSubject.next(false);
+				this.unreadRefreshSubject.next();
+			},
+			error: error => this.fail(error, 'No se pudo borrar la conversación.')
+		});
+	}
+
+	disconnect(): void {
+		this.inboxSubscription?.unsubscribe();
+		this.presenceSubscription?.unsubscribe();
+		this.inboxSubscription = undefined;
+		this.presenceSubscription = undefined;
+		this.subscribedUser = '';
+		this.stompClient?.disconnect();
+		this.stompClient = undefined;
+		this.connecting = false;
+		this.connectionSubject.next(false);
+	}
+
+	private connectInbox(user: string): void {
+		if (!this.stompClient) {
+			this.stompClient = Stomp.over(new SockJS(`${environment.apiUrl}/chat-socket`));
+		}
 		if (this.stompClient.connected) {
 			this.subscribeToInbox(user);
 		} else if (!this.connecting) {
@@ -47,85 +139,99 @@ export class ChatService {
 				this.subscribeToInbox(this.activeUser);
 			}, (error: unknown) => {
 				this.connecting = false;
-				console.error('No se pudo conectar al chat', error);
+				this.connectionSubject.next(false);
+				this.fail(error, 'No se pudo conectar al chat.');
 			});
 		}
 	}
 
-	getMessageSubject() {
-		return this.messageSubject.asObservable();
-	}
-
-	getUnreadCounts() {
-		return this.unreadCounts.asObservable();
-	}
-
-	sendMessage(message: string): void {
-		if (!this.stompClient?.connected) {
-			throw new Error('El chat todavía no está conectado.');
-		}
-
-		const chatMessage: ChatMessage = {
-			message,
-			user: this.activeUser,
-			roomId: this.activeConversationId
-		};
-		this.stompClient.send(`/app/private/${this.activeUser}/${this.activeContact}`, {}, JSON.stringify(chatMessage));
-		const messages = [...(this.conversations[this.activeConversationId] || []), chatMessage];
-		this.conversations[this.activeConversationId] = messages;
-		this.saveConversations();
-		this.messageSubject.next(messages);
-	}
-
-	clearConversation(): void {
-		this.conversations[this.activeConversationId] = [];
-		this.saveConversations();
-		const unread = this.loadUnreadCounts(this.activeUser);
-		delete unread[this.activeContact];
-		this.saveUnreadCounts(this.activeUser, unread);
-		this.messageSubject.next([]);
-	}
-
 	private subscribeToInbox(user: string): void {
-		if (this.activeUser !== user) return;
-		if (this.subscribedUser === user) return;
+		if (this.activeUser !== user || this.subscribedUser === user) return;
 		this.inboxSubscription?.unsubscribe();
 		this.subscribedUser = user;
-		this.inboxSubscription = this.stompClient.subscribe(`/topic/users/${encodeURIComponent(user)}`, (frame: { body: string }) => {
-			if (this.activeUser !== user) return;
-			const message = JSON.parse(frame.body) as ChatMessage;
-			if (!message.roomId || message.user === user) return;
-			const conversationId = message.roomId;
-			const messages = [...(this.conversations[conversationId] || []), message];
-			this.conversations[conversationId] = messages;
-			this.saveConversations();
-			if (conversationId === this.activeConversationId) {
-				this.messageSubject.next(messages);
-			} else {
-				const unread = this.loadUnreadCounts(user);
-				const contact = message.user;
-				unread[contact] = (unread[contact] || 0) + 1;
-				this.saveUnreadCounts(user, unread);
-			}
+		this.inboxSubscription = this.stompClient.subscribe(
+			`/topic/users/${encodeURIComponent(user)}`,
+			(frame: { body: string }) => this.receiveMessage(JSON.parse(frame.body) as ChatMessage, user)
+		);
+		this.presenceSubscription = this.stompClient.subscribe('/topic/presence', (frame: { body: string }) => {
+			this.presenceSubject.next(JSON.parse(frame.body) as UserPresence);
+		});
+		this.connectionSubject.next(true);
+		this.unreadRefreshSubject.next();
+	}
+
+	private receiveMessage(message: ChatMessage, user: string): void {
+		if (this.activeUser !== user || !message.roomId) return;
+
+		if (message.user === user) {
+			if (message.roomId === this.activeRoomId) this.appendMessage(message);
+			return;
+		}
+
+		this.withCsrf(token => this.http.post<void>(
+			`${environment.apiUrl}/api/messages/${message.id}/delivered`,
+			{},
+			{ withCredentials: true, headers: new HttpHeaders({ 'X-XSRF-TOKEN': token }) }
+		)).subscribe({
+			next: () => {
+				if (message.roomId === this.activeRoomId) {
+					this.withCsrf(token => this.http.post<void>(
+						`${environment.apiUrl}/api/rooms/${message.roomId}/read`,
+						{},
+						{ withCredentials: true, headers: new HttpHeaders({ 'X-XSRF-TOKEN': token }) }
+					)).subscribe({
+						next: () => this.unreadRefreshSubject.next(),
+						error: error => this.fail(error, 'No se pudo actualizar el estado de lectura.')
+					});
+					this.appendMessage(message);
+				} else if (message.user !== this.activeContact) {
+					this.unreadRefreshSubject.next();
+				}
+			},
+			error: error => this.fail(error, 'No se pudo confirmar la entrega del mensaje.')
 		});
 	}
 
-	private conversationId(user: string, contact: string): string {
-		return [user, contact].sort().join('-').toLowerCase();
+	private loadPage(page: number, roomId: string, prepend: boolean): void {
+		this.http.get<MessagePage>(
+			`${environment.apiUrl}/api/rooms/${roomId}/messages?page=${page}&size=50`,
+			{ withCredentials: true }
+		).subscribe({
+			next: result => {
+				if (roomId !== this.activeRoomId) return;
+				const messages = [...result.content].reverse();
+				this.messageSubject.next(prepend
+					? this.mergeMessages(messages, this.messageSubject.value)
+					: this.mergeMessages(this.messageSubject.value, messages));
+				this.page = result.number;
+				this.hasMoreSubject.next(result.number + 1 < result.totalPages);
+				this.unreadRefreshSubject.next();
+			},
+			error: error => this.fail(error, 'No se pudo cargar el historial.')
+		});
 	}
 
-	private saveConversations(): void {
-		localStorage.setItem(this.localStorageKey, JSON.stringify(this.conversations));
+	private appendMessage(message: ChatMessage): void {
+		this.messageSubject.next(this.mergeMessages(this.messageSubject.value, [message]));
 	}
 
-	private loadUnreadCounts(user: string): Record<string, number> {
-		const counts = JSON.parse(localStorage.getItem(`private_chat_unread_${user}`) || '{}') as Record<string, number>;
-		this.unreadCounts.next(counts);
-		return counts;
+	private mergeMessages(first: ChatMessage[], second: ChatMessage[]): ChatMessage[] {
+		const byId = new Map([...first, ...second].map(message => [message.id, message]));
+		return [...byId.values()].sort((a, b) =>
+			a.timestamp.localeCompare(b.timestamp) || a.id.localeCompare(b.id));
 	}
 
-	private saveUnreadCounts(user: string, counts: Record<string, number>): void {
-		localStorage.setItem(`private_chat_unread_${user}`, JSON.stringify(counts));
-		this.unreadCounts.next(counts);
+	private withCsrf<T>(request: (token: string) => Observable<T>): Observable<T> {
+		return this.http.get(`${environment.apiUrl}/api/auth/csrf`, {
+			withCredentials: true,
+			responseType: 'text'
+		}).pipe(
+			switchMap(token => request(token))
+		);
+	}
+
+	private fail(error: unknown, fallback: string): void {
+		console.error(fallback, error);
+		this.errorSubject.next(fallback);
 	}
 }

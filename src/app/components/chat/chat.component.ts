@@ -13,11 +13,12 @@ type DisplayMessage = ChatMessage & { message_side: 'sender' | 'receiver' };
 })
 export class ChatComponent implements OnInit {
 	contactUsers: ChatUser[] = [];
+	currentUser?: ChatUser;
 	userId = '';
 	contactId = '';
 	messageInput = '';
 	messageList: DisplayMessage[] = [];
-	unreadCounts: Record<string, number> = {};
+	hasMore = false;
 	error = '';
 	@ViewChild('messageContainer') messageContainer?: ElementRef<HTMLElement>;
 
@@ -31,7 +32,26 @@ export class ChatComponent implements OnInit {
 	ngOnInit(): void {
 		this.userId = this.route.snapshot.paramMap.get('userId') || '';
 		this.chatService.getMessageSubject().subscribe(messages => this.updateMessages(messages));
-		this.chatService.getUnreadCounts().subscribe(counts => this.unreadCounts = counts);
+		this.chatService.getHasMore().subscribe(hasMore => this.hasMore = hasMore);
+		this.chatService.getErrors().subscribe(error => this.error = error);
+		this.chatService.getUnreadRefresh().subscribe(() => this.refreshUsers());
+		this.chatService.getPresenceUpdates().subscribe(presence => {
+			this.contactUsers = this.contactUsers.map(user =>
+				user.id === presence.userId ? { ...user, online: presence.online } : user);
+			if (this.currentUser?.id === presence.userId) {
+				this.currentUser = { ...this.currentUser, online: presence.online };
+			}
+		});
+		this.chatService.getConnectionState().subscribe(online => {
+			if (this.currentUser) this.currentUser = { ...this.currentUser, online };
+		});
+		this.auth.currentUser().subscribe({
+			next: user => {
+				this.currentUser = user;
+				this.chatService.connect(user.id);
+			},
+			error: () => this.error = 'No se pudo cargar tu perfil.'
+		});
 		this.auth.users().subscribe({
 			next: users => {
 				this.contactUsers = users;
@@ -49,6 +69,7 @@ export class ChatComponent implements OnInit {
 	selectContact(contact: ChatUser): void {
 		if (!this.contactUsers.some(user => user.id === contact.id)) return;
 		this.contactId = contact.id;
+		this.contactUsers = this.contactUsers.map(user => user.id === contact.id ? { ...user, unreadCount: 0 } : user);
 		this.messageInput = '';
 		this.chatService.openConversation(this.userId, contact.id);
 		this.updateUrl();
@@ -71,6 +92,20 @@ export class ChatComponent implements OnInit {
 		this.chatService.clearConversation();
 	}
 
+	logout(): void {
+		this.auth.logout().subscribe({
+			next: () => {
+				this.chatService.disconnect();
+				this.router.navigate(['/']);
+			},
+			error: () => this.error = 'No se pudo cerrar sesión. Intenta nuevamente.'
+		});
+	}
+
+	loadOlderMessages(): void {
+		this.chatService.loadOlderMessages();
+	}
+
 	scrollToBottom(): void {
 		setTimeout(() => {
 			if (this.messageContainer) {
@@ -80,15 +115,33 @@ export class ChatComponent implements OnInit {
 	}
 
 	private updateMessages(messages: ChatMessage[]): void {
+		const shouldScroll = messages[messages.length - 1]?.id !== this.messageList[this.messageList.length - 1]?.id;
 		this.messageList = messages.map(message => ({
 			...message,
 			message_side: message.user === this.userId ? 'sender' : 'receiver'
 		}));
-		this.scrollToBottom();
+		if (shouldScroll) this.scrollToBottom();
+	}
+
+	private refreshUsers(): void {
+		this.auth.users().subscribe({
+			next: users => this.contactUsers = users,
+			error: () => this.error = 'No se pudo actualizar la lista de usuarios.'
+		});
 	}
 
 	displayName(userId: string): string {
-		return this.contactUsers.find(user => user.id === userId)?.name || userId;
+		return this.userFor(userId)?.name || 'Usuario';
+	}
+
+	userPicture(userId: string): string | null {
+		return this.userFor(userId)?.picture || null;
+	}
+
+	private userFor(userId: string): ChatUser | undefined {
+		return this.currentUser?.id === userId
+			? this.currentUser
+			: this.contactUsers.find(user => user.id === userId);
 	}
 
 	get contact(): ChatUser | undefined {

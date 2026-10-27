@@ -5,6 +5,7 @@
         <p class="mt-2 text-center text-sm leading-6 text-slate-500">Inicia sesión con Google para conversar con otros usuarios registrados.</p>
 
         <button
+            *ngIf="!sessionActive"
             type="button"
             class="mt-8 flex w-full items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 disabled:cursor-wait disabled:opacity-60"
             [disabled]="loading"
@@ -19,7 +20,15 @@
         </button>
 
         <p *ngIf="error" class="mt-5 rounded-xl bg-slate-50 p-3 text-center text-sm text-slate-600" role="status">{{ error }}</p>
+        <p *ngIf="info" class="mt-5 rounded-xl bg-blue-50 p-3 text-center text-sm text-blue-800" role="status">{{ info }}</p>
         <p *ngIf="loading" class="mt-5 text-center text-xs text-slate-400">Comprobando sesión...</p>
+        <button
+            *ngIf="sessionActive"
+            type="button"
+            class="mt-4 w-full rounded-xl border border-slate-200 px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2"
+            (click)="logout()">
+            Cerrar sesión
+        </button>
         <p class="mt-8 text-center text-xs leading-5 text-slate-400">Tu perfil se usará para identificarte en las conversaciones.</p>
     </section>
 </main>

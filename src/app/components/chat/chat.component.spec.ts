@@ -18,8 +18,19 @@ describe('ChatComponent', () => {
       providers: [
         { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: (key: string) => key === 'userId' ? 'user-1' : 'user-2' } } } },
         { provide: Router, useValue: { navigate: jasmine.createSpy('navigate') } },
-        { provide: AuthService, useValue: { users: () => of([]) } },
-        { provide: ChatService, useValue: { getMessageSubject: () => of([]), getUnreadCounts: () => of({}), openConversation: jasmine.createSpy('openConversation') } }
+        { provide: AuthService, useValue: { users: () => of([]), currentUser: () => of({
+          id: 'user-1', name: 'Usuario actual', email: 'user@example.com', picture: null, unreadCount: 0, online: true
+        }) } },
+        { provide: ChatService, useValue: {
+          getMessageSubject: () => of([]),
+          getHasMore: () => of(false),
+          getErrors: () => of(''),
+          getUnreadRefresh: () => of(),
+          getPresenceUpdates: () => of(),
+          getConnectionState: () => of(false),
+          connect: jasmine.createSpy('connect'),
+          openConversation: jasmine.createSpy('openConversation')
+        } }
       ]
     });
     fixture = TestBed.createComponent(ChatComponent);
