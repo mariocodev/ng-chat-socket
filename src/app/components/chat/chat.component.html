@@ -1,209 +1,263 @@
 <div class="flex h-dvh min-h-0 bg-slate-100 text-slate-700 md:p-3">
-    <div class="flex min-h-0 w-full overflow-hidden bg-white md:rounded-2xl md:border md:border-slate-200">
-        <aside class="hidden w-60 shrink-0 flex-col border-r border-slate-200 bg-slate-50 md:flex xl:w-72">
-            <div class="border-b border-slate-200 px-5 py-6">
-                <h1 class="text-lg font-semibold text-slate-800">Chats</h1>
-                <p class="mt-1 text-sm text-slate-500">Elige con quién conversar</p>
+  <div class="flex min-h-0 w-full overflow-hidden bg-white md:rounded-2xl md:border md:border-slate-200">
+    <aside class="hidden w-60 shrink-0 flex-col border-r border-slate-200 bg-slate-50 md:flex xl:w-72">
+      <div class="border-b border-slate-200 px-5 py-6">
+        <h1 class="text-lg font-semibold text-slate-800">Chats</h1>
+        <p class="mt-1 text-sm text-slate-500">Elige con quién conversar</p>
+      </div>
+      <nav class="flex-1 space-y-1 overflow-y-auto p-3" aria-label="Usuarios">
+        @for (user of contactUsers(); track user.id) {
+          <button
+            type="button"
+            class="flex w-full items-center gap-3 rounded-xl p-3 text-left transition focus:outline-none focus:ring-2 focus:ring-slate-400"
+            [ngClass]="user.id === contactId() ? 'bg-white shadow-sm ring-1 ring-slate-200' : 'hover:bg-white/70'"
+            [attr.aria-pressed]="user.id === contactId()"
+            (click)="selectContact(user)">
+            <span class="relative grid h-10 w-10 shrink-0 place-items-center rounded-full bg-slate-900 text-sm font-semibold text-white">
+              @if (hasPicture(user.picture)) {
+                <img class="h-10 w-10 rounded-full object-cover" [src]="user.picture" (error)="onPictureError(user.picture)" alt="" />
+              }
+              @if (!hasPicture(user.picture)) {
+                <span>{{ user.name.charAt(0).toUpperCase() }}</span>
+              }
+              @if (user.online) {
+                <span class="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-slate-50 bg-emerald-500" aria-label="En línea"></span>
+              }
+            </span>
+            <span class="min-w-0 flex-1">
+              <span class="block truncate text-sm font-medium text-slate-800">{{ user.name }}</span>
+              <span class="mt-1 flex items-center gap-1.5 truncate text-xs text-slate-500">
+                <span class="h-1.5 w-1.5 shrink-0 rounded-full" [ngClass]="user.online ? 'bg-emerald-500' : 'bg-slate-300'"></span>
+                {{ user.online ? 'En línea' : 'Desconectado' }}
+              </span>
+            </span>
+            @if (user.unreadCount > 0) {
+              <span class="grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-slate-900 px-1.5 text-xs font-semibold text-white" [attr.aria-label]="user.unreadCount + ' mensajes sin leer'">
+                {{ user.unreadCount > 99 ? '99+' : user.unreadCount }}
+              </span>
+            }
+          </button>
+        }
+      </nav>
+      <div class="border-t border-slate-200 p-3">
+        <details class="relative">
+          <summary class="flex cursor-pointer list-none items-center gap-3 rounded-xl p-3 transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-slate-400">
+            <span class="relative grid h-10 w-10 shrink-0 place-items-center rounded-full bg-slate-900 text-sm font-semibold text-white">
+              @if (hasPicture(currentUser()?.picture)) {
+                <img class="h-10 w-10 rounded-full object-cover" [src]="currentUser()?.picture" (error)="onPictureError(currentUser()?.picture)" alt="" />
+              }
+              @if (!hasPicture(currentUser()?.picture)) {
+                <span>{{ currentUser()?.name?.charAt(0)?.toUpperCase() || '?' }}</span>
+              }
+              @if (currentUser()?.online) {
+                <span class="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-slate-50 bg-emerald-500" aria-label="En línea"></span>
+              }
+            </span>
+            <span class="min-w-0 flex-1">
+              <span class="block truncate text-sm font-medium text-slate-800">{{ currentUser()?.name || 'Mi cuenta' }}</span>
+              <span class="block truncate text-xs text-slate-500">{{ currentUser()?.email }}</span>
+            </span>
+            <svg class="h-4 w-4 text-slate-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+              <path fill-rule="evenodd" d="M5.22 7.47a.75.75 0 0 1 1.06 0L10 11.19l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 8.53a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd" />
+            </svg>
+          </summary>
+          <div class="absolute bottom-full left-0 z-20 mb-2 w-full rounded-xl border border-slate-200 bg-white p-2 shadow-xl" role="menu" aria-label="Menú de usuario">
+            <div class="px-3 py-2 text-sm font-medium text-slate-800" role="menuitem">Perfil</div>
+            <div class="px-3 py-2 text-sm text-slate-600" role="menuitem">Configuración</div>
+            <div class="my-1 border-t border-slate-200"></div>
+            <button type="button" class="w-full rounded-lg px-3 py-2 text-left text-sm font-medium text-red-600 transition hover:bg-red-50" role="menuitem" (click)="logout()">
+              Cerrar sesión
+            </button>
+          </div>
+        </details>
+      </div>
+    </aside>
+
+    <main class="flex min-w-0 flex-1 flex-col">
+      <header class="flex min-h-16 items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 sm:px-6">
+        <div class="flex min-w-0 items-center gap-3">
+          <div class="relative grid h-10 w-10 shrink-0 place-items-center rounded-full bg-slate-900 text-sm font-semibold text-white">
+            @if (hasPicture(contact?.picture)) {
+              <img class="h-10 w-10 rounded-full object-cover" [src]="contact?.picture" (error)="onPictureError(contact?.picture)" alt="" />
+            }
+            @if (!hasPicture(contact?.picture)) {
+              <span>{{ contact?.name?.charAt(0)?.toUpperCase() || '?' }}</span>
+            }
+            @if (contact?.online) {
+              <span class="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white bg-emerald-500" aria-label="En línea"></span>
+            }
+          </div>
+          <div class="min-w-0">
+            <h2 class="truncate font-semibold text-slate-900">{{ contact?.name || 'Sin otros usuarios' }}</h2>
+            <p class="flex items-center gap-1.5 truncate text-xs text-slate-500">
+              @if (contact) {
+                <span class="h-1.5 w-1.5 shrink-0 rounded-full" [ngClass]="contact.online ? 'bg-emerald-500' : 'bg-slate-300'"></span>
+              }
+              {{ contact ? (contact.online ? 'En línea' : 'Desconectado') : 'Cuando alguien se registre, aparecerá en la lista.' }}
+            </p>
+          </div>
+        </div>
+        <div class="flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            class="grid h-10 w-10 place-items-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-400"
+            aria-label="Borrar esta conversación"
+            title="Borrar esta conversación"
+            (click)="clearConversation()">
+            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 7h16M10 11v6m4-6v6M5 7l1 13h12l1-13M9 7V4h6v3" />
+            </svg>
+          </button>
+          <details class="relative md:hidden">
+            <summary class="grid h-10 w-10 cursor-pointer list-none place-items-center rounded-full bg-slate-100 text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-400">
+              <span class="relative grid h-8 w-8 place-items-center rounded-full bg-slate-900 text-white">
+                      @if (hasPicture(currentUser()?.picture)) {
+                        <img class="h-8 w-8 rounded-full object-cover" [src]="currentUser()?.picture" (error)="onPictureError(currentUser()?.picture)" alt="" />
+                }
+                      @if (!hasPicture(currentUser()?.picture)) {
+                        <span>{{ currentUser()?.name?.charAt(0)?.toUpperCase() || '?' }}</span>
+                }
+                      @if (currentUser()?.online) {
+                  <span class="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-500" aria-label="En línea"></span>
+                }
+              </span>
+            </summary>
+            <div class="absolute right-0 top-full z-20 mt-2 w-52 rounded-xl border border-slate-200 bg-white p-2 shadow-xl" role="menu" aria-label="Menú de usuario">
+              <div class="px-3 py-2 text-sm font-medium text-slate-800" role="menuitem">Perfil</div>
+              <div class="px-3 py-2 text-sm text-slate-600" role="menuitem">Configuración</div>
+              <div class="my-1 border-t border-slate-200"></div>
+              <button type="button" class="w-full rounded-lg px-3 py-2 text-left text-sm font-medium text-red-600 transition hover:bg-red-50" role="menuitem" (click)="logout()">
+                Cerrar sesión
+              </button>
             </div>
-            <nav class="flex-1 space-y-1 overflow-y-auto p-3" aria-label="Usuarios">
-                <button
-                    *ngFor="let user of contactUsers"
-                    type="button"
-                    class="flex w-full items-center gap-3 rounded-xl p-3 text-left transition focus:outline-none focus:ring-2 focus:ring-slate-400"
-                    [ngClass]="user.id === contactId ? 'bg-white shadow-sm ring-1 ring-slate-200' : 'hover:bg-white/70'"
-                    [attr.aria-pressed]="user.id === contactId"
-                    (click)="selectContact(user)">
-                    <span class="relative grid h-10 w-10 shrink-0 place-items-center rounded-full bg-slate-900 text-sm font-semibold text-white">
-                        <img *ngIf="hasPicture(user.picture)" class="h-10 w-10 rounded-full object-cover" [src]="user.picture" (error)="onPictureError(user.picture)" alt="" />
-                        <span *ngIf="!hasPicture(user.picture)">{{ user.name.charAt(0).toUpperCase() }}</span>
-                        <span *ngIf="user.online" class="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-slate-50 bg-emerald-500" aria-label="En línea"></span>
-                    </span>
-                    <span class="min-w-0 flex-1">
-                        <span class="block truncate text-sm font-medium text-slate-800">{{ user.name }}</span>
-                        <span class="mt-1 flex items-center gap-1.5 truncate text-xs text-slate-500">
-                            <span class="h-1.5 w-1.5 shrink-0 rounded-full" [ngClass]="user.online ? 'bg-emerald-500' : 'bg-slate-300'"></span>
-                            {{ user.online ? 'En línea' : 'Desconectado' }}
-                        </span>
-                    </span>
-                    <span *ngIf="user.unreadCount > 0" class="grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-slate-900 px-1.5 text-xs font-semibold text-white" [attr.aria-label]="user.unreadCount + ' mensajes sin leer'">
-                        {{ user.unreadCount > 99 ? '99+' : user.unreadCount }}
-                    </span>
-                </button>
-            </nav>
-            <div class="border-t border-slate-200 p-3">
-                <details class="relative">
-                    <summary class="flex cursor-pointer list-none items-center gap-3 rounded-xl p-3 transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-slate-400">
-                        <span class="relative grid h-10 w-10 shrink-0 place-items-center rounded-full bg-slate-900 text-sm font-semibold text-white">
-                            <img *ngIf="hasPicture(currentUser?.picture)" class="h-10 w-10 rounded-full object-cover" [src]="currentUser?.picture" (error)="onPictureError(currentUser?.picture)" alt="" />
-                            <span *ngIf="!hasPicture(currentUser?.picture)">{{ currentUser?.name?.charAt(0)?.toUpperCase() || '?' }}</span>
-                            <span *ngIf="currentUser?.online" class="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-slate-50 bg-emerald-500" aria-label="En línea"></span>
-                        </span>
-                        <span class="min-w-0 flex-1">
-                            <span class="block truncate text-sm font-medium text-slate-800">{{ currentUser?.name || 'Mi cuenta' }}</span>
-                            <span class="block truncate text-xs text-slate-500">{{ currentUser?.email }}</span>
-                        </span>
-                        <svg class="h-4 w-4 text-slate-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                            <path fill-rule="evenodd" d="M5.22 7.47a.75.75 0 0 1 1.06 0L10 11.19l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 8.53a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd" />
-                        </svg>
-                    </summary>
-                    <div class="absolute bottom-full left-0 z-20 mb-2 w-full rounded-xl border border-slate-200 bg-white p-2 shadow-xl" role="menu" aria-label="Menú de usuario">
-                        <div class="px-3 py-2 text-sm font-medium text-slate-800" role="menuitem">Perfil</div>
-                        <div class="px-3 py-2 text-sm text-slate-600" role="menuitem">Configuración</div>
-                        <div class="my-1 border-t border-slate-200"></div>
-                        <button type="button" class="w-full rounded-lg px-3 py-2 text-left text-sm font-medium text-red-600 transition hover:bg-red-50" role="menuitem" (click)="logout()">
-                            Cerrar sesión
-                        </button>
-                    </div>
-                </details>
+          </details>
+        </div>
+      </header>
+
+      <nav class="flex gap-2 overflow-x-auto border-b border-slate-200 bg-slate-50 p-3 md:hidden" aria-label="Seleccionar contacto">
+        @for (user of contactUsers(); track user.id) {
+          <button
+            type="button"
+            class="flex shrink-0 items-center gap-2 rounded-full px-3 py-2 text-sm transition focus:outline-none focus:ring-2 focus:ring-slate-400"
+            [ngClass]="user.id === contactId() ? 'bg-slate-900 text-white' : 'bg-white text-slate-700 ring-1 ring-slate-200'"
+            [attr.aria-pressed]="user.id === contactId()"
+            (click)="selectContact(user)">
+            <span class="relative grid h-6 w-6 place-items-center rounded-full bg-slate-500/20 text-xs font-semibold">
+              @if (hasPicture(user.picture)) {
+                <img class="h-6 w-6 rounded-full object-cover" [src]="user.picture" (error)="onPictureError(user.picture)" alt="" />
+              }
+              @if (!hasPicture(user.picture)) {
+                <span>{{ user.name.charAt(0).toUpperCase() }}</span>
+              }
+              @if (user.online) {
+                <span class="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border border-white bg-emerald-500" aria-label="En línea"></span>
+              }
+            </span>
+            {{ user.name }}
+            @if (user.unreadCount > 0) {
+              <span class="grid h-5 min-w-5 place-items-center rounded-full bg-slate-900 px-1.5 text-xs font-semibold text-white" [attr.aria-label]="user.unreadCount + ' mensajes sin leer'">
+                {{ user.unreadCount > 99 ? '99+' : user.unreadCount }}
+              </span>
+            }
+          </button>
+        }
+      </nav>
+
+      <ul #messageContainer class="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-4 py-6 sm:px-8 lg:px-12" aria-label="Mensajes" aria-live="polite">
+        @if (hasMore()) {
+          <li class="list-none text-center">
+            <button type="button" class="rounded-lg px-4 py-2 text-sm font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-800" (click)="loadOlderMessages()">
+              Cargar mensajes anteriores
+            </button>
+          </li>
+        }
+        @for (item of messageList(); track item.id) {
+          <li
+            class="flex w-full items-end gap-2 sm:gap-3"
+            [ngClass]="item.message_side === 'sender' ? 'flex-row-reverse' : 'flex-row'">
+            <div class="grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-full bg-slate-200 text-xs font-semibold text-slate-600 sm:h-9 sm:w-9">
+              @if (hasPicture(userPicture(item.user))) {
+                <img class="h-full w-full object-cover" [src]="userPicture(item.user)" (error)="onPictureError(userPicture(item.user))" alt="" />
+              }
+              @if (!hasPicture(userPicture(item.user))) {
+                <span>{{ displayName(item.user).charAt(0).toUpperCase() }}</span>
+              }
             </div>
-        </aside>
-
-        <main class="flex min-w-0 flex-1 flex-col">
-            <header class="flex min-h-16 items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 sm:px-6">
-                <div class="flex min-w-0 items-center gap-3">
-                    <div class="relative grid h-10 w-10 shrink-0 place-items-center rounded-full bg-slate-900 text-sm font-semibold text-white">
-                        <img *ngIf="hasPicture(contact?.picture)" class="h-10 w-10 rounded-full object-cover" [src]="contact?.picture" (error)="onPictureError(contact?.picture)" alt="" />
-                        <span *ngIf="!hasPicture(contact?.picture)">{{ contact?.name?.charAt(0)?.toUpperCase() || '?' }}</span>
-                        <span *ngIf="contact?.online" class="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white bg-emerald-500" aria-label="En línea"></span>
-                    </div>
-                    <div class="min-w-0">
-                        <h2 class="truncate font-semibold text-slate-900">{{ contact?.name || 'Sin otros usuarios' }}</h2>
-                        <p class="flex items-center gap-1.5 truncate text-xs text-slate-500">
-                            <span *ngIf="contact" class="h-1.5 w-1.5 shrink-0 rounded-full" [ngClass]="contact.online ? 'bg-emerald-500' : 'bg-slate-300'"></span>
-                            {{ contact ? (contact.online ? 'En línea' : 'Desconectado') : 'Cuando alguien se registre, aparecerá en la lista.' }}
-                        </p>
-                    </div>
-                </div>
-                <div class="flex shrink-0 items-center gap-2">
-                    <button
-                        type="button"
-                        class="grid h-10 w-10 place-items-center rounded-full text-slate-500 transition hover:bg-slate-100 hover:text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-400"
-                        aria-label="Borrar esta conversación"
-                        title="Borrar esta conversación"
-                        (click)="clearConversation()">
-                        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 7h16M10 11v6m4-6v6M5 7l1 13h12l1-13M9 7V4h6v3" />
-                        </svg>
-                    </button>
-                    <details class="relative md:hidden">
-                        <summary class="grid h-10 w-10 cursor-pointer list-none place-items-center rounded-full bg-slate-100 text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-400">
-                            <span class="relative grid h-8 w-8 place-items-center rounded-full bg-slate-900 text-white">
-                                <img *ngIf="hasPicture(currentUser?.picture)" class="h-8 w-8 rounded-full object-cover" [src]="currentUser?.picture" (error)="onPictureError(currentUser?.picture)" alt="" />
-                                <span *ngIf="!hasPicture(currentUser?.picture)">{{ currentUser?.name?.charAt(0)?.toUpperCase() || '?' }}</span>
-                                <span *ngIf="currentUser?.online" class="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-500" aria-label="En línea"></span>
-                            </span>
-                        </summary>
-                        <div class="absolute right-0 top-full z-20 mt-2 w-52 rounded-xl border border-slate-200 bg-white p-2 shadow-xl" role="menu" aria-label="Menú de usuario">
-                            <div class="px-3 py-2 text-sm font-medium text-slate-800" role="menuitem">Perfil</div>
-                            <div class="px-3 py-2 text-sm text-slate-600" role="menuitem">Configuración</div>
-                            <div class="my-1 border-t border-slate-200"></div>
-                            <button type="button" class="w-full rounded-lg px-3 py-2 text-left text-sm font-medium text-red-600 transition hover:bg-red-50" role="menuitem" (click)="logout()">
-                                Cerrar sesión
-                            </button>
-                        </div>
-                    </details>
-                </div>
-            </header>
-
-            <nav class="flex gap-2 overflow-x-auto border-b border-slate-200 bg-slate-50 p-3 md:hidden" aria-label="Seleccionar contacto">
-                <button
-                    *ngFor="let user of contactUsers"
-                    type="button"
-                    class="flex shrink-0 items-center gap-2 rounded-full px-3 py-2 text-sm transition focus:outline-none focus:ring-2 focus:ring-slate-400"
-                    [ngClass]="user.id === contactId ? 'bg-slate-900 text-white' : 'bg-white text-slate-700 ring-1 ring-slate-200'"
-                    [attr.aria-pressed]="user.id === contactId"
-                    (click)="selectContact(user)">
-                    <span class="relative grid h-6 w-6 place-items-center rounded-full bg-slate-500/20 text-xs font-semibold">
-                        <img *ngIf="hasPicture(user.picture)" class="h-6 w-6 rounded-full object-cover" [src]="user.picture" (error)="onPictureError(user.picture)" alt="" />
-                        <span *ngIf="!hasPicture(user.picture)">{{ user.name.charAt(0).toUpperCase() }}</span>
-                        <span *ngIf="user.online" class="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border border-white bg-emerald-500" aria-label="En línea"></span>
-                    </span>
-                    {{ user.name }}
-                    <span *ngIf="user.unreadCount > 0" class="grid h-5 min-w-5 place-items-center rounded-full bg-slate-900 px-1.5 text-xs font-semibold text-white" [attr.aria-label]="user.unreadCount + ' mensajes sin leer'">
-                        {{ user.unreadCount > 99 ? '99+' : user.unreadCount }}
-                    </span>
-                </button>
-            </nav>
-
-            <ul #messageContainer class="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-4 py-6 sm:px-8 lg:px-12" aria-label="Mensajes" aria-live="polite">
-                <li *ngIf="hasMore" class="list-none text-center">
-                    <button type="button" class="rounded-lg px-4 py-2 text-sm font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-800" (click)="loadOlderMessages()">
-                        Cargar mensajes anteriores
-                    </button>
-                </li>
-                <li
-                    *ngFor="let item of messageList"
-                    class="flex w-full items-end gap-2 sm:gap-3"
-                    [ngClass]="item.message_side === 'sender' ? 'flex-row-reverse' : 'flex-row'">
-                    <div class="grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-full bg-slate-200 text-xs font-semibold text-slate-600 sm:h-9 sm:w-9">
-                        <img *ngIf="hasPicture(userPicture(item.user))" class="h-full w-full object-cover" [src]="userPicture(item.user)" (error)="onPictureError(userPicture(item.user))" alt="" />
-                        <span *ngIf="!hasPicture(userPicture(item.user))">{{ displayName(item.user).charAt(0).toUpperCase() }}</span>
-                    </div>
-                    <div class="max-w-[85%] sm:max-w-[70%]">
-                        <div
-                            class="break-words rounded-2xl px-4 py-3 text-sm leading-6 shadow-sm sm:px-5"
-                            [ngClass]="item.message_side === 'sender' ? 'rounded-br-md bg-slate-950 text-white' : 'rounded-bl-md bg-slate-100 text-slate-700'">
-                            {{ item.message }}
-                        </div>
-                        <div class="mt-1 px-1 text-xs font-medium text-slate-500" [ngClass]="item.message_side === 'sender' ? 'text-right' : 'text-left'">
-                            {{ item.message_side === 'sender' ? 'Tú' : displayName(item.user) }}
-                        </div>
-                    </div>
-                </li>
-            </ul>
-
-            <p *ngIf="error" class="px-4 py-2 text-center text-sm text-red-600" role="alert">{{ error }}</p>
-            <form class="border-t border-slate-200 bg-white p-3 sm:px-6 sm:py-4" (submit)="$event.preventDefault(); sendMessage()">
-                <div class="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm focus-within:border-slate-400 focus-within:ring-2 focus-within:ring-slate-100 sm:gap-3 sm:px-4">
-                    <input
-                        class="min-w-0 flex-1 border-0 bg-transparent px-2 py-2 text-sm text-slate-800 outline-none placeholder:text-slate-400 focus:ring-0"
-                        type="text"
-                        name="message"
-                        autocomplete="off"
-                        aria-label="Escribe un mensaje"
-                        placeholder="Escribe tu mensaje..."
-                        [(ngModel)]="messageInput" />
-                    <button
-                        class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-slate-950 text-white transition hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40"
-                        type="submit"
-                        aria-label="Enviar mensaje"
-                        [disabled]="!messageInput.trim() || !contactId">
-                        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="m22 2-7 20-4-9-9-4 20-7ZM22 2 11 13" />
-                        </svg>
-                    </button>
-                </div>
-            </form>
-        </main>
-
-        <aside class="hidden w-72 shrink-0 flex-col border-l border-slate-200 bg-white px-6 py-8 xl:flex">
-            <div class="flex flex-col items-center border-b border-slate-200 pb-7 text-center">
-                <div class="relative grid h-16 w-16 place-items-center overflow-hidden rounded-full bg-slate-950 text-xl font-semibold text-white">
-                    <img *ngIf="hasPicture(contact?.picture)" class="h-full w-full object-cover" [src]="contact?.picture" (error)="onPictureError(contact?.picture)" alt="" />
-                    <span *ngIf="!hasPicture(contact?.picture)">{{ contact?.name?.charAt(0)?.toUpperCase() || '?' }}</span>
-                    <span *ngIf="contact?.online" class="absolute bottom-1 right-1 h-3.5 w-3.5 rounded-full border-2 border-white bg-emerald-500" aria-label="En línea"></span>
-                </div>
-                <h2 class="mt-4 font-semibold text-slate-900">{{ contact?.name }}</h2>
-                <p class="mt-1 text-sm text-slate-500">{{ contact?.online ? 'En línea' : 'Desconectado' }}</p>
+            <div class="max-w-[85%] sm:max-w-[70%]">
+              <div
+                class="break-words rounded-2xl px-4 py-3 text-sm leading-6 shadow-sm sm:px-5"
+                [ngClass]="item.message_side === 'sender' ? 'rounded-br-md bg-slate-950 text-white' : 'rounded-bl-md bg-slate-100 text-slate-700'">
+                {{ item.message }}
+              </div>
+              <div class="mt-1 px-1 text-xs font-medium text-slate-500" [ngClass]="item.message_side === 'sender' ? 'text-right' : 'text-left'">
+                {{ item.message_side === 'sender' ? 'Tú' : displayName(item.user) }}
+              </div>
             </div>
-            <section class="border-b border-slate-200 py-6">
-                <h3 class="text-sm font-semibold text-slate-800">Contacto</h3>
-                <div class="mt-4 flex items-center gap-3">
-                    <div class="min-w-0">
-                        <p class="truncate text-sm font-medium text-slate-700">{{ contact?.email }}</p>
-                        <p class="mt-1 text-xs text-slate-500">Conversación privada</p>
-                    </div>
-                </div>
-            </section>
-            <section class="py-6">
-                <h3 class="text-sm font-semibold text-slate-800">Información</h3>
-                <p class="mt-3 text-sm leading-6 text-slate-500">
-                    Los mensajes se guardan en el servidor y se cargan por páginas al abrir la conversación.
-                </p>
-                <p class="mt-4 break-all rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">
-                    /chat/{{ userId }}/{{ contactId }}
-                </p>
-            </section>
-        </aside>
-    </div>
+          </li>
+        }
+      </ul>
+
+      @if (error()) {
+        <p class="px-4 py-2 text-center text-sm text-red-600" role="alert">{{ error() }}</p>
+      }
+      <form class="border-t border-slate-200 bg-white p-3 sm:px-6 sm:py-4" (submit)="$event.preventDefault(); sendMessage()">
+        <div class="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm focus-within:border-slate-400 focus-within:ring-2 focus-within:ring-slate-100 sm:gap-3 sm:px-4">
+          <input
+            class="min-w-0 flex-1 border-0 bg-transparent px-2 py-2 text-sm text-slate-800 outline-none placeholder:text-slate-400 focus:ring-0"
+            type="text"
+            name="message"
+            autocomplete="off"
+            aria-label="Escribe un mensaje"
+            placeholder="Escribe tu mensaje..."
+            [ngModel]="messageInput()"
+            (ngModelChange)="messageInput.set($event)" />
+          <button
+            class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-slate-950 text-white transition hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40"
+            type="submit"
+            aria-label="Enviar mensaje"
+            [disabled]="!messageInput().trim() || !contactId()">
+            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="m22 2-7 20-4-9-9-4 20-7ZM22 2 11 13" />
+            </svg>
+          </button>
+        </div>
+      </form>
+    </main>
+
+    <aside class="hidden w-72 shrink-0 flex-col border-l border-slate-200 bg-white px-6 py-8 xl:flex">
+      <div class="flex flex-col items-center border-b border-slate-200 pb-7 text-center">
+        <div class="relative grid h-16 w-16 place-items-center overflow-hidden rounded-full bg-slate-950 text-xl font-semibold text-white">
+          @if (hasPicture(contact?.picture)) {
+            <img class="h-full w-full object-cover" [src]="contact?.picture" (error)="onPictureError(contact?.picture)" alt="" />
+          }
+          @if (!hasPicture(contact?.picture)) {
+            <span>{{ contact?.name?.charAt(0)?.toUpperCase() || '?' }}</span>
+          }
+          @if (contact?.online) {
+            <span class="absolute bottom-1 right-1 h-3.5 w-3.5 rounded-full border-2 border-white bg-emerald-500" aria-label="En línea"></span>
+          }
+        </div>
+        <h2 class="mt-4 font-semibold text-slate-900">{{ contact?.name }}</h2>
+        <p class="mt-1 text-sm text-slate-500">{{ contact?.online ? 'En línea' : 'Desconectado' }}</p>
+      </div>
+      <section class="border-b border-slate-200 py-6">
+        <h3 class="text-sm font-semibold text-slate-800">Contacto</h3>
+        <div class="mt-4 flex items-center gap-3">
+          <div class="min-w-0">
+            <p class="truncate text-sm font-medium text-slate-700">{{ contact?.email }}</p>
+            <p class="mt-1 text-xs text-slate-500">Conversación privada</p>
+          </div>
+        </div>
+      </section>
+      <section class="py-6">
+        <h3 class="text-sm font-semibold text-slate-800">Información</h3>
+        <p class="mt-3 text-sm leading-6 text-slate-500">
+          Los mensajes se guardan en el servidor y se cargan por páginas al abrir la conversación.
+        </p>
+        <p class="mt-4 break-all rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">
+          /chat/{{ userId() }}/{{ contactId() }}
+        </p>
+      </section>
+    </aside>
+  </div>
 </div>

@@ -1,18 +1,18 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { HttpErrorResponse } from '@angular/common/http';
 import { catchError, of } from 'rxjs';
 import { AuthService } from '../../services/auth.service';
-
 @Component({
     selector: 'app-login',
-    templateUrl: './login.component.html'
+    templateUrl: './login.component.html',
+    standalone: true
 })
 export class LoginComponent implements OnInit {
-    loading = true;
-    error = '';
-    info = '';
-    sessionActive = false;
+    readonly loading = signal(true);
+    readonly error = signal('');
+    readonly info = signal('');
+    readonly sessionActive = signal(false);
 
     constructor(private auth: AuthService, private router: Router) {}
 
@@ -20,27 +20,27 @@ export class LoginComponent implements OnInit {
         this.auth.currentUser().pipe(
             catchError(error => {
                 if (error instanceof HttpErrorResponse && error.status === 401) return of(null);
-                this.error = error instanceof HttpErrorResponse && error.status === 0
+                this.error.set(error instanceof HttpErrorResponse && error.status === 0
                     ? 'No se pudo contactar con el servidor. Comprueba que el backend esté activo y que la API esté configurada correctamente.'
                     : error instanceof HttpErrorResponse && error.status === 404
                         ? 'La sesión de Google está activa, pero tu usuario no está registrado en el backend.'
-                        : `No se pudo verificar la sesión${error instanceof HttpErrorResponse ? ` (HTTP ${error.status})` : ''}. Revisa el backend e inténtalo nuevamente.`;
+                        : `No se pudo verificar la sesión${error instanceof HttpErrorResponse ? ` (HTTP ${error.status})` : ''}. Revisa el backend e inténtalo nuevamente.`);
                 return of(null);
             })
         ).subscribe(user => {
-            this.loading = false;
+            this.loading.set(false);
             if (!user) return;
 
-            this.sessionActive = true;
+            this.sessionActive.set(true);
             this.auth.users().subscribe({
                 next: users => {
                     if (users.length) {
                         this.router.navigate(['/chat', user.id, users[0].id]);
                     } else {
-                        this.info = 'Iniciaste sesión correctamente. No hay otros usuarios registrados todavía. Cuando alguien más inicie sesión, podrás iniciar una conversación desde aquí.';
+                        this.info.set('Iniciaste sesión correctamente. No hay otros usuarios registrados todavía. Cuando alguien más inicie sesión, podrás iniciar una conversación desde aquí.');
                     }
                 },
-                error: () => this.error = 'No se pudo cargar la lista de usuarios.'
+                error: () => this.error.set('No se pudo cargar la lista de usuarios.')
             });
         });
     }
@@ -52,11 +52,11 @@ export class LoginComponent implements OnInit {
     logout(): void {
         this.auth.logout().subscribe({
             next: () => {
-                this.sessionActive = false;
-                this.info = '';
-                this.error = '';
+                this.sessionActive.set(false);
+                this.info.set('');
+                this.error.set('');
             },
-            error: () => this.error = 'No se pudo cerrar sesión. Intenta nuevamente.'
+            error: () => this.error.set('No se pudo cerrar sesión. Intenta nuevamente.')
         });
     }
 }

@@ -1,4 +1,6 @@
-import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
+import { Component, ElementRef, OnInit, signal, ViewChild } from '@angular/core';
+import { NgClass } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ChatMessage, ChatUser } from '../../models/chat-message.interface';
 import { AuthService } from '../../services/auth.service';
@@ -9,18 +11,20 @@ type DisplayMessage = ChatMessage & { message_side: 'sender' | 'receiver' };
 @Component({
 	selector: 'app-chat',
 	templateUrl: './chat.component.html',
-	styleUrls: ['./chat.component.scss']
+	styleUrls: ['./chat.component.scss'],
+	imports: [NgClass, FormsModule],
+	standalone: true
 })
 export class ChatComponent implements OnInit {
-	contactUsers: ChatUser[] = [];
-	currentUser?: ChatUser;
-	userId = '';
-	contactId = '';
-	messageInput = '';
-	messageList: DisplayMessage[] = [];
-	private failedPictures = new Set<string>();
-	hasMore = false;
-	error = '';
+	readonly contactUsers = signal<ChatUser[]>([]);
+	readonly currentUser = signal<ChatUser | undefined>(undefined);
+	readonly userId = signal('');
+	readonly contactId = signal('');
+	readonly messageInput = signal('');
+	readonly messageList = signal<DisplayMessage[]>([]);
+	readonly hasMore = signal(false);
+	readonly error = signal('');
+	private failedPictures = signal(new Set<string>());
 	@ViewChild('messageContainer') messageContainer?: ElementRef<HTMLElement>;
 
 	constructor(
@@ -31,61 +35,61 @@ export class ChatComponent implements OnInit {
 	) {}
 
 	ngOnInit(): void {
-		this.userId = this.route.snapshot.paramMap.get('userId') || '';
+		this.userId.set(this.route.snapshot.paramMap.get('userId') || '');
 		this.chatService.getMessageSubject().subscribe(messages => this.updateMessages(messages));
-		this.chatService.getHasMore().subscribe(hasMore => this.hasMore = hasMore);
-		this.chatService.getErrors().subscribe(error => this.error = error);
+		this.chatService.getHasMore().subscribe(hasMore => this.hasMore.set(hasMore));
+		this.chatService.getErrors().subscribe(error => this.error.set(error));
 		this.chatService.getUnreadRefresh().subscribe(() => this.refreshUsers());
 		this.chatService.getPresenceUpdates().subscribe(presence => {
-			this.contactUsers = this.contactUsers.map(user =>
-				user.id === presence.userId ? { ...user, online: presence.online } : user);
-			if (this.currentUser?.id === presence.userId) {
-				this.currentUser = { ...this.currentUser, online: presence.online };
+			this.contactUsers.update(users => users.map(user =>
+				user.id === presence.userId ? { ...user, online: presence.online } : user));
+			if (this.currentUser()?.id === presence.userId) {
+				this.currentUser.update(user => user ? { ...user, online: presence.online } : user);
 			}
 		});
 		this.chatService.getConnectionState().subscribe(online => {
-			if (this.currentUser) this.currentUser = { ...this.currentUser, online };
+			this.currentUser.update(user => user ? { ...user, online } : user);
 		});
 		this.auth.currentUser().subscribe({
 			next: user => {
-				this.currentUser = user;
+				this.currentUser.set(user);
 				this.chatService.connect(user.id);
 			},
-			error: () => this.error = 'No se pudo cargar tu perfil.'
+			error: () => this.error.set('No se pudo cargar tu perfil.')
 		});
 		this.auth.users().subscribe({
 			next: users => {
-				this.contactUsers = users;
+				this.contactUsers.set(users);
 				const routeContact = this.route.snapshot.paramMap.get('contactId');
-				this.contactId = users.some(user => user.id === routeContact)
-					? routeContact!
-					: users[0]?.id || '';
-				if (this.contactId) this.chatService.openConversation(this.userId, this.contactId);
-				if (this.contactId !== routeContact) this.updateUrl();
+				const contactId = users.some(user => user.id === routeContact) ? routeContact! : users[0]?.id || '';
+				this.contactId.set(contactId);
+				if (contactId) this.chatService.openConversation(this.userId(), contactId);
+				if (contactId !== routeContact) this.updateUrl();
 			},
-			error: () => this.error = 'No se pudo cargar la lista de usuarios.'
+			error: () => this.error.set('No se pudo cargar la lista de usuarios.')
 		});
 	}
 
 	selectContact(contact: ChatUser): void {
-		if (!this.contactUsers.some(user => user.id === contact.id)) return;
-		this.contactId = contact.id;
-		this.contactUsers = this.contactUsers.map(user => user.id === contact.id ? { ...user, unreadCount: 0 } : user);
-		this.messageInput = '';
-		this.chatService.openConversation(this.userId, contact.id);
+		if (!this.contactUsers().some(user => user.id === contact.id)) return;
+		this.contactId.set(contact.id);
+		this.contactUsers.update(users => users.map(user =>
+			user.id === contact.id ? { ...user, unreadCount: 0 } : user));
+		this.messageInput.set('');
+		this.chatService.openConversation(this.userId(), contact.id);
 		this.updateUrl();
 	}
 
 	sendMessage(): void {
-		const message = this.messageInput.trim();
+		const message = this.messageInput().trim();
 		if (!message) return;
 
 		try {
 			this.chatService.sendMessage(message);
-			this.messageInput = '';
-			this.error = '';
+			this.messageInput.set('');
+			this.error.set('');
 		} catch (error) {
-			this.error = error instanceof Error ? error.message : 'No se pudo enviar el mensaje.';
+			this.error.set(error instanceof Error ? error.message : 'No se pudo enviar el mensaje.');
 		}
 	}
 
@@ -99,7 +103,7 @@ export class ChatComponent implements OnInit {
 				this.chatService.disconnect();
 				this.router.navigate(['/']);
 			},
-			error: () => this.error = 'No se pudo cerrar sesión. Intenta nuevamente.'
+			error: () => this.error.set('No se pudo cerrar sesión. Intenta nuevamente.')
 		});
 	}
 
@@ -116,18 +120,19 @@ export class ChatComponent implements OnInit {
 	}
 
 	private updateMessages(messages: ChatMessage[]): void {
-		const shouldScroll = messages[messages.length - 1]?.id !== this.messageList[this.messageList.length - 1]?.id;
-		this.messageList = messages.map(message => ({
+		const lastMessage = this.messageList().at(-1)?.id;
+		const shouldScroll = messages.at(-1)?.id !== lastMessage;
+		this.messageList.set(messages.map(message => ({
 			...message,
-			message_side: message.user === this.userId ? 'sender' : 'receiver'
-		}));
+			message_side: message.user === this.userId() ? 'sender' : 'receiver'
+		})));
 		if (shouldScroll) this.scrollToBottom();
 	}
 
 	private refreshUsers(): void {
 		this.auth.users().subscribe({
-			next: users => this.contactUsers = users,
-			error: () => this.error = 'No se pudo actualizar la lista de usuarios.'
+			next: users => this.contactUsers.set(users),
+			error: () => this.error.set('No se pudo actualizar la lista de usuarios.')
 		});
 	}
 
@@ -140,25 +145,24 @@ export class ChatComponent implements OnInit {
 	}
 
 	hasPicture(picture: string | null | undefined): picture is string {
-		return !!picture && !this.failedPictures.has(picture);
+		return !!picture && !this.failedPictures().has(picture);
 	}
 
 	onPictureError(picture: string | null | undefined): void {
-		if (!picture) return;
-		this.failedPictures = new Set(this.failedPictures).add(picture);
+		if (picture) this.failedPictures.update(failed => new Set(failed).add(picture));
 	}
 
 	private userFor(userId: string): ChatUser | undefined {
-		return this.currentUser?.id === userId
-			? this.currentUser
-			: this.contactUsers.find(user => user.id === userId);
+		return this.currentUser()?.id === userId
+			? this.currentUser()
+			: this.contactUsers().find(user => user.id === userId);
 	}
 
 	get contact(): ChatUser | undefined {
-		return this.contactUsers.find(user => user.id === this.contactId);
+		return this.contactUsers().find(user => user.id === this.contactId());
 	}
 
 	private updateUrl(): void {
-		this.router.navigate(['/chat', this.userId, this.contactId]);
+		this.router.navigate(['/chat', this.userId(), this.contactId()]);
 	}
 }

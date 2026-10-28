@@ -1,6 +1,6 @@
 # NgChatSocket
 
-This project was generated with [Angular CLI](https://github.com/angular/angular-cli) version 16.0.0.
+This project uses Angular 21 and standalone components. Use Node.js 22.12+ (or 20.19+). Templates use Angular's built-in `@if` and `@for` control flow, and component state uses signals where it changes asynchronously.
 
 ## Development server
 
