@@ -25,6 +25,11 @@ export interface TypingEvent {
     userId: string;
 }
 
+export interface TypingState {
+    userId: string;
+    typing: boolean;
+}
+
 export interface ChatRoom {
     id: string;
     type: 'PRIVATE' | 'GROUP';

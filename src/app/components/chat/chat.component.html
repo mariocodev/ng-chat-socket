@@ -27,8 +27,13 @@
             <span class="min-w-0 flex-1">
               <span class="block truncate text-sm font-medium text-slate-800">{{ user.name }}</span>
               <span class="mt-1 flex items-center gap-1.5 truncate text-xs text-slate-500">
-                <span class="h-1.5 w-1.5 shrink-0 rounded-full" [ngClass]="user.online ? 'bg-emerald-500' : 'bg-slate-300'"></span>
-                {{ user.online ? 'En línea' : 'Desconectado' }}
+                @if (typingUsers().has(user.id) && user.id !== contactId()) {
+                  <span class="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-emerald-500"></span>
+                  Escribiendo...
+                } @else {
+                  <span class="h-1.5 w-1.5 shrink-0 rounded-full" [ngClass]="user.online ? 'bg-emerald-500' : 'bg-slate-300'"></span>
+                  {{ user.online ? 'En línea' : 'Desconectado' }}
+                }
               </span>
             </span>
             @if (user.unreadCount > 0) {
@@ -90,7 +95,7 @@
           <div class="min-w-0">
             <h2 class="truncate font-semibold text-slate-900">{{ contact?.name || 'Sin otros usuarios' }}</h2>
             <p class="flex items-center gap-1.5 truncate text-xs text-slate-500" aria-live="polite">
-              @if (typing()) {
+              @if (contactTyping()) {
                 <span class="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-emerald-500"></span>
                 Escribiendo...
               } @else {

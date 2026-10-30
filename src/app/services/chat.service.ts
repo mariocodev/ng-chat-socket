@@ -3,7 +3,7 @@ import { Injectable } from '@angular/core';
 import { Stomp, StompSubscription } from '@stomp/stompjs';
 import { BehaviorSubject, Observable, Subject, switchMap } from 'rxjs';
 import * as SockJS from 'sockjs-client';
-import { ChatMessage, ChatRoom, MessagePage, TypingEvent, UserPresence } from '../models/chat-message.interface';
+import { ChatMessage, ChatRoom, MessagePage, TypingEvent, TypingState, UserPresence } from '../models/chat-message.interface';
 import { environment } from '../../environments/environment';
 
 @Injectable({
@@ -15,7 +15,7 @@ export class ChatService {
 	private hasMoreSubject = new BehaviorSubject(false);
 	private unreadRefreshSubject = new Subject<void>();
 	private presenceSubject = new Subject<UserPresence>();
-	private typingSubject = new Subject<string>();
+	private typingSubject = new Subject<TypingState>();
 	private connectionSubject = new BehaviorSubject(false);
 	private errorSubject = new BehaviorSubject('');
 	private activeRoomId = '';
@@ -37,7 +37,6 @@ export class ChatService {
 		this.page = 0;
 		this.messageSubject.next([]);
 		this.hasMoreSubject.next(false);
-		this.typingSubject.next('');
 		this.errorSubject.next('');
 		this.connectInbox(user);
 
@@ -71,7 +70,7 @@ export class ChatService {
 		return this.presenceSubject.asObservable();
 	}
 
-	getTyping(): Observable<string> {
+	getTyping(): Observable<TypingState> {
 		return this.typingSubject.asObservable();
 	}
 
@@ -179,7 +178,7 @@ export class ChatService {
 			`/topic/typing/${encodeURIComponent(user)}`,
 			(frame: { body: string }) => {
 				const event = JSON.parse(frame.body) as TypingEvent;
-				if (event.userId === this.activeContact) this.typingSubject.next(event.userId);
+				this.typingSubject.next({ userId: event.userId, typing: true });
 			}
 		);
 		this.connectionSubject.next(true);
@@ -194,7 +193,7 @@ export class ChatService {
 			return;
 		}
 
-		this.typingSubject.next('');
+		this.typingSubject.next({ userId: message.user, typing: false });
 		this.withCsrf(token => this.http.post<void>(
 			`${environment.apiUrl}/api/messages/${message.id}/delivered`,
 			{},

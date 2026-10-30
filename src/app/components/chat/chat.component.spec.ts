@@ -24,7 +24,7 @@ describe('ChatComponent', () => {
                 getErrors: () => of(''),
                 getUnreadRefresh: () => of(),
                 getPresenceUpdates: () => of(),
-                getTyping: () => of(''),
+                getTyping: () => of({ userId: '', typing: false }),
                 getConnectionState: () => of(false),
                 connect: jasmine.createSpy('connect'),
                 sendTyping: jasmine.createSpy('sendTyping'),
@@ -58,12 +58,20 @@ describe('ChatComponent', () => {
     expect(chatService.sendTyping).toHaveBeenCalledTimes(1);
   });
 
-  it('hides the typing indicator after the timeout', fakeAsync(() => {
-    component.setTyping(true);
-    expect(component.typing()).toBeTrue();
+  it('shows and clears typing state per user', fakeAsync(() => {
+    component.setTyping('user-2', true);
+    expect(component.typingUsers().has('user-2')).toBeTrue();
 
     tick(3000);
 
-    expect(component.typing()).toBeFalse();
+    expect(component.typingUsers().has('user-2')).toBeFalse();
   }));
+
+  it('hides the typing indicator when a message arrives', () => {
+    component.setTyping('user-2', true);
+
+    component.setTyping('user-2', false);
+
+    expect(component.typingUsers().has('user-2')).toBeFalse();
+  });
 });
