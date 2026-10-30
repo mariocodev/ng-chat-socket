@@ -138,13 +138,15 @@
         @for (user of contactUsers(); track user.id) {
           <button
             type="button"
-            class="flex shrink-0 items-center gap-2 rounded-full px-3 py-2 text-sm transition focus:outline-none focus:ring-2 focus:ring-slate-400"
-            [ngClass]="user.id === contactId() ? 'bg-slate-900 text-white' : 'bg-white text-slate-700 ring-1 ring-slate-200'"
+            class="relative grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white transition focus:outline-none focus:ring-2 focus:ring-slate-400"
+            [ngClass]="user.id === contactId() ? 'ring-2 ring-slate-900' : 'ring-1 ring-slate-200 hover:ring-slate-400'"
             [attr.aria-pressed]="user.id === contactId()"
+            [attr.aria-label]="user.unreadCount > 0 ? user.name + ', ' + user.unreadCount + ' mensajes sin leer' : user.name"
+            [attr.title]="user.name"
             (click)="selectContact(user)">
-            <span class="relative grid h-6 w-6 place-items-center rounded-full bg-slate-500/20 text-xs font-semibold">
+            <span class="relative grid h-9 w-9 place-items-center rounded-full bg-slate-500/20 text-xs font-semibold">
               @if (hasPicture(user.picture)) {
-                <img class="h-6 w-6 rounded-full object-cover" [src]="user.picture" (error)="onPictureError(user.picture)" alt="" />
+                <img class="h-9 w-9 rounded-full object-cover" [src]="user.picture" (error)="onPictureError(user.picture)" alt="" />
               }
               @if (!hasPicture(user.picture)) {
                 <span>{{ user.name.charAt(0).toUpperCase() }}</span>
@@ -153,9 +155,8 @@
                 <span class="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border border-white bg-emerald-500" aria-label="En línea"></span>
               }
             </span>
-            {{ user.name }}
             @if (user.unreadCount > 0) {
-              <span class="grid h-5 min-w-5 place-items-center rounded-full bg-slate-900 px-1.5 text-xs font-semibold text-white" [attr.aria-label]="user.unreadCount + ' mensajes sin leer'">
+              <span class="absolute -right-0.5 -top-0.5 grid h-5 min-w-5 place-items-center rounded-full bg-slate-900 px-1.5 text-xs font-semibold text-white ring-2 ring-slate-50" [attr.aria-label]="user.unreadCount + ' mensajes sin leer'">
                 {{ user.unreadCount > 99 ? '99+' : user.unreadCount }}
               </span>
             }
