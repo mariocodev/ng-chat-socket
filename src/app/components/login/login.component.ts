@@ -13,11 +13,12 @@ export class LoginComponent implements OnInit {
     readonly error = signal('');
     readonly info = signal('');
     readonly sessionActive = signal(false);
+    readonly status = signal('Comprobando sesión...');
 
     constructor(private auth: AuthService, private router: Router) {}
 
     ngOnInit(): void {
-        this.auth.currentUser().pipe(
+        this.auth.hydrateSession().pipe(
             catchError(error => {
                 if (error instanceof HttpErrorResponse && error.status === 401) return of(null);
                 this.error.set(error instanceof HttpErrorResponse && error.status === 0
@@ -28,19 +29,26 @@ export class LoginComponent implements OnInit {
                 return of(null);
             })
         ).subscribe(user => {
-            this.loading.set(false);
-            if (!user) return;
+            if (!user) {
+                this.loading.set(false);
+                return;
+            }
 
             this.sessionActive.set(true);
+            this.status.set('Iniciando sesión en el chat...');
             this.auth.users().subscribe({
                 next: users => {
+                    this.loading.set(false);
                     if (users.length) {
                         this.router.navigate(['/chat', user.id, users[0].id]);
                     } else {
                         this.info.set('Iniciaste sesión correctamente. No hay otros usuarios registrados todavía. Cuando alguien más inicie sesión, podrás iniciar una conversación desde aquí.');
                     }
                 },
-                error: () => this.error.set('No se pudo cargar la lista de usuarios.')
+                error: () => {
+                    this.loading.set(false);
+                    this.error.set('No se pudo cargar la lista de usuarios.');
+                }
             });
         });
     }
@@ -52,6 +60,7 @@ export class LoginComponent implements OnInit {
     logout(): void {
         this.auth.logout().subscribe({
             next: () => {
+                this.auth.clearSession();
                 this.sessionActive.set(false);
                 this.info.set('');
                 this.error.set('');

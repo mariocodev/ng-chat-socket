@@ -25,6 +25,7 @@ describe('ChatComponent', () => {
                 getUnreadRefresh: () => of(),
                 getPresenceUpdates: () => of(),
                 getTyping: () => of({ userId: '', typing: false }),
+                getConversationReady: () => of(false),
                 getConnectionState: () => of(false),
                 connect: jasmine.createSpy('connect'),
                 sendTyping: jasmine.createSpy('sendTyping'),
@@ -56,6 +57,10 @@ describe('ChatComponent', () => {
     component.onInputChange('   ');
 
     expect(chatService.sendTyping).toHaveBeenCalledTimes(1);
+  });
+
+  it('marks the session ready when there are no contacts', () => {
+    expect(component.sessionReady()).toBeTrue();
   });
 
   it('shows and clears typing state per user', fakeAsync(() => {

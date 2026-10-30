@@ -1,15 +1,29 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Observable, switchMap } from 'rxjs';
+import { Observable, shareReplay, switchMap } from 'rxjs';
 import { ChatUser } from '../models/chat-message.interface';
 import { environment } from '../../environments/environment';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
+    private session$?: Observable<ChatUser>;
+
     constructor(private http: HttpClient) {}
 
+    hydrateSession(): Observable<ChatUser> {
+        this.session$ ??= this.http.get<ChatUser>(
+            `${environment.apiUrl}/api/auth/me`,
+            { withCredentials: true }
+        ).pipe(shareReplay(1));
+        return this.session$;
+    }
+
     currentUser(): Observable<ChatUser> {
-        return this.http.get<ChatUser>(`${environment.apiUrl}/api/auth/me`, { withCredentials: true });
+        return this.hydrateSession();
+    }
+
+    clearSession(): void {
+        this.session$ = undefined;
     }
 
     users(): Observable<ChatUser[]> {

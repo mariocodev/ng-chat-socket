@@ -17,6 +17,7 @@ export class ChatService {
 	private presenceSubject = new Subject<UserPresence>();
 	private typingSubject = new Subject<TypingState>();
 	private connectionSubject = new BehaviorSubject(false);
+	private conversationReadySubject = new BehaviorSubject(false);
 	private errorSubject = new BehaviorSubject('');
 	private activeRoomId = '';
 	private activeUser = '';
@@ -37,6 +38,7 @@ export class ChatService {
 		this.page = 0;
 		this.messageSubject.next([]);
 		this.hasMoreSubject.next(false);
+		this.conversationReadySubject.next(false);
 		this.errorSubject.next('');
 		this.connectInbox(user);
 
@@ -76,6 +78,10 @@ export class ChatService {
 
 	getConnectionState(): Observable<boolean> {
 		return this.connectionSubject.asObservable();
+	}
+
+	getConversationReady(): Observable<boolean> {
+		return this.conversationReadySubject.asObservable();
 	}
 
 	getErrors(): Observable<string> {
@@ -231,6 +237,7 @@ export class ChatService {
 					: this.mergeMessages(this.messageSubject.value, messages));
 				this.page = result.number;
 				this.hasMoreSubject.next(result.number + 1 < result.totalPages);
+				this.conversationReadySubject.next(true);
 				this.unreadRefreshSubject.next();
 			},
 			error: error => this.fail(error, 'No se pudo cargar el historial.')

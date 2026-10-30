@@ -25,6 +25,7 @@ export class ChatComponent implements OnInit, OnDestroy {
 	readonly hasMore = signal(false);
 	readonly typingUsers = signal(new Set<string>());
 	readonly contactTyping = computed(() => this.typingUsers().has(this.contactId()));
+	readonly sessionReady = signal(false);
 	readonly error = signal('');
 	private failedPictures = signal(new Set<string>());
 	private typingTimers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -44,7 +45,10 @@ export class ChatComponent implements OnInit, OnDestroy {
 		this.userId.set(this.route.snapshot.paramMap.get('userId') || '');
 		this.chatService.getMessageSubject().subscribe(messages => this.updateMessages(messages));
 		this.chatService.getHasMore().subscribe(hasMore => this.hasMore.set(hasMore));
-		this.chatService.getErrors().subscribe(error => this.error.set(error));
+		this.chatService.getErrors().subscribe(error => {
+			this.error.set(error);
+			if (error) this.sessionReady.set(true);
+		});
 		this.chatService.getUnreadRefresh().subscribe(() => this.refreshUsers());
 		this.chatService.getPresenceUpdates().subscribe(presence => {
 			this.contactUsers.update(users => users.map(user =>
@@ -57,12 +61,18 @@ export class ChatComponent implements OnInit, OnDestroy {
 			this.currentUser.update(user => user ? { ...user, online } : user);
 		});
 		this.chatService.getTyping().subscribe(state => this.setTyping(state.userId, state.typing));
+		this.chatService.getConversationReady().subscribe(ready => {
+			if (ready) this.sessionReady.set(true);
+		});
 		this.auth.currentUser().subscribe({
 			next: user => {
 				this.currentUser.set(user);
 				this.chatService.connect(user.id);
 			},
-			error: () => this.error.set('No se pudo cargar tu perfil.')
+			error: () => {
+				this.error.set('No se pudo cargar tu perfil.');
+				this.sessionReady.set(true);
+			}
 		});
 		this.auth.users().subscribe({
 			next: users => {
@@ -71,9 +81,13 @@ export class ChatComponent implements OnInit, OnDestroy {
 				const contactId = users.some(user => user.id === routeContact) ? routeContact! : users[0]?.id || '';
 				this.contactId.set(contactId);
 				if (contactId) this.chatService.openConversation(this.userId(), contactId);
+				else this.sessionReady.set(true);
 				if (contactId !== routeContact) this.updateUrl();
 			},
-			error: () => this.error.set('No se pudo cargar la lista de usuarios.')
+			error: () => {
+				this.error.set('No se pudo cargar la lista de usuarios.');
+				this.sessionReady.set(true);
+			}
 		});
 	}
 
@@ -133,6 +147,7 @@ export class ChatComponent implements OnInit, OnDestroy {
 	logout(): void {
 		this.auth.logout().subscribe({
 			next: () => {
+				this.auth.clearSession();
 				this.chatService.disconnect();
 				this.router.navigate(['/']);
 			},
