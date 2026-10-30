@@ -89,11 +89,16 @@
           </div>
           <div class="min-w-0">
             <h2 class="truncate font-semibold text-slate-900">{{ contact?.name || 'Sin otros usuarios' }}</h2>
-            <p class="flex items-center gap-1.5 truncate text-xs text-slate-500">
-              @if (contact) {
-                <span class="h-1.5 w-1.5 shrink-0 rounded-full" [ngClass]="contact.online ? 'bg-emerald-500' : 'bg-slate-300'"></span>
+            <p class="flex items-center gap-1.5 truncate text-xs text-slate-500" aria-live="polite">
+              @if (typing()) {
+                <span class="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-emerald-500"></span>
+                Escribiendo...
+              } @else {
+                @if (contact) {
+                  <span class="h-1.5 w-1.5 shrink-0 rounded-full" [ngClass]="contact.online ? 'bg-emerald-500' : 'bg-slate-300'"></span>
+                }
+                {{ contact ? (contact.online ? 'En línea' : 'Desconectado') : 'Cuando alguien se registre, aparecerá en la lista.' }}
               }
-              {{ contact ? (contact.online ? 'En línea' : 'Desconectado') : 'Cuando alguien se registre, aparecerá en la lista.' }}
             </p>
           </div>
         </div>
@@ -211,7 +216,7 @@
             aria-label="Escribe un mensaje"
             placeholder="Escribe tu mensaje..."
             [ngModel]="messageInput()"
-            (ngModelChange)="messageInput.set($event)" />
+            (ngModelChange)="onInputChange($event)" />
           <button
             class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-slate-950 text-white transition hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40"
             type="submit"

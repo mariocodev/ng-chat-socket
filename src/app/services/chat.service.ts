@@ -3,7 +3,7 @@ import { Injectable } from '@angular/core';
 import { Stomp, StompSubscription } from '@stomp/stompjs';
 import { BehaviorSubject, Observable, Subject, switchMap } from 'rxjs';
 import * as SockJS from 'sockjs-client';
-import { ChatMessage, ChatRoom, MessagePage, UserPresence } from '../models/chat-message.interface';
+import { ChatMessage, ChatRoom, MessagePage, TypingEvent, UserPresence } from '../models/chat-message.interface';
 import { environment } from '../../environments/environment';
 
 @Injectable({
@@ -15,6 +15,7 @@ export class ChatService {
 	private hasMoreSubject = new BehaviorSubject(false);
 	private unreadRefreshSubject = new Subject<void>();
 	private presenceSubject = new Subject<UserPresence>();
+	private typingSubject = new Subject<string>();
 	private connectionSubject = new BehaviorSubject(false);
 	private errorSubject = new BehaviorSubject('');
 	private activeRoomId = '';
@@ -23,6 +24,7 @@ export class ChatService {
 	private page = 0;
 	private inboxSubscription?: StompSubscription;
 	private presenceSubscription?: StompSubscription;
+	private typingSubscription?: StompSubscription;
 	private subscribedUser = '';
 	private connecting = false;
 
@@ -35,6 +37,7 @@ export class ChatService {
 		this.page = 0;
 		this.messageSubject.next([]);
 		this.hasMoreSubject.next(false);
+		this.typingSubject.next('');
 		this.errorSubject.next('');
 		this.connectInbox(user);
 
@@ -68,6 +71,10 @@ export class ChatService {
 		return this.presenceSubject.asObservable();
 	}
 
+	getTyping(): Observable<string> {
+		return this.typingSubject.asObservable();
+	}
+
 	getConnectionState(): Observable<boolean> {
 		return this.connectionSubject.asObservable();
 	}
@@ -90,6 +97,16 @@ export class ChatService {
 			`/app/private/${encodeURIComponent(this.activeUser)}/${encodeURIComponent(this.activeContact)}`,
 			{},
 			JSON.stringify({ message })
+		);
+	}
+
+	sendTyping(): void {
+		if (!this.stompClient?.connected || !this.activeRoomId) return;
+
+		this.stompClient.send(
+			`/app/typing/${encodeURIComponent(this.activeUser)}/${encodeURIComponent(this.activeContact)}`,
+			{},
+			'{}'
 		);
 	}
 
@@ -117,8 +134,10 @@ export class ChatService {
 	disconnect(): void {
 		this.inboxSubscription?.unsubscribe();
 		this.presenceSubscription?.unsubscribe();
+		this.typingSubscription?.unsubscribe();
 		this.inboxSubscription = undefined;
 		this.presenceSubscription = undefined;
+		this.typingSubscription = undefined;
 		this.subscribedUser = '';
 		this.stompClient?.disconnect();
 		this.stompClient = undefined;
@@ -156,6 +175,13 @@ export class ChatService {
 		this.presenceSubscription = this.stompClient.subscribe('/topic/presence', (frame: { body: string }) => {
 			this.presenceSubject.next(JSON.parse(frame.body) as UserPresence);
 		});
+		this.typingSubscription = this.stompClient.subscribe(
+			`/topic/typing/${encodeURIComponent(user)}`,
+			(frame: { body: string }) => {
+				const event = JSON.parse(frame.body) as TypingEvent;
+				if (event.userId === this.activeContact) this.typingSubject.next(event.userId);
+			}
+		);
 		this.connectionSubject.next(true);
 		this.unreadRefreshSubject.next();
 	}
@@ -168,6 +194,7 @@ export class ChatService {
 			return;
 		}
 
+		this.typingSubject.next('');
 		this.withCsrf(token => this.http.post<void>(
 			`${environment.apiUrl}/api/messages/${message.id}/delivered`,
 			{},

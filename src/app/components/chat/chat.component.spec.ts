@@ -1,4 +1,4 @@
-import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { ActivatedRoute, Router } from '@angular/router';
 import { of } from 'rxjs';
 import { ChatComponent } from './chat.component';
@@ -24,8 +24,10 @@ describe('ChatComponent', () => {
                 getErrors: () => of(''),
                 getUnreadRefresh: () => of(),
                 getPresenceUpdates: () => of(),
+                getTyping: () => of(''),
                 getConnectionState: () => of(false),
                 connect: jasmine.createSpy('connect'),
+                sendTyping: jasmine.createSpy('sendTyping'),
                 openConversation: jasmine.createSpy('openConversation')
             } }
     ]
@@ -45,4 +47,23 @@ describe('ChatComponent', () => {
     expect(component.hasPicture('https://example.com/avatar.png')).toBeFalse();
     expect(component.hasPicture(null)).toBeFalse();
   });
+
+  it('sends typing events throttled while the input has text', () => {
+    const chatService = TestBed.inject(ChatService);
+
+    component.onInputChange('hola');
+    component.onInputChange('hola!');
+    component.onInputChange('   ');
+
+    expect(chatService.sendTyping).toHaveBeenCalledTimes(1);
+  });
+
+  it('hides the typing indicator after the timeout', fakeAsync(() => {
+    component.setTyping(true);
+    expect(component.typing()).toBeTrue();
+
+    tick(3000);
+
+    expect(component.typing()).toBeFalse();
+  }));
 });

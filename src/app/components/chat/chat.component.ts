@@ -1,4 +1,4 @@
-import { Component, ElementRef, OnInit, signal, ViewChild } from '@angular/core';
+import { Component, ElementRef, OnDestroy, OnInit, signal, ViewChild } from '@angular/core';
 import { NgClass } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -15,7 +15,7 @@ type DisplayMessage = ChatMessage & { message_side: 'sender' | 'receiver' };
 	imports: [NgClass, FormsModule],
 	standalone: true
 })
-export class ChatComponent implements OnInit {
+export class ChatComponent implements OnInit, OnDestroy {
 	readonly contactUsers = signal<ChatUser[]>([]);
 	readonly currentUser = signal<ChatUser | undefined>(undefined);
 	readonly userId = signal('');
@@ -23,8 +23,13 @@ export class ChatComponent implements OnInit {
 	readonly messageInput = signal('');
 	readonly messageList = signal<DisplayMessage[]>([]);
 	readonly hasMore = signal(false);
+	readonly typing = signal(false);
 	readonly error = signal('');
 	private failedPictures = signal(new Set<string>());
+	private typingHideTimer?: ReturnType<typeof setTimeout>;
+	private lastTypingSentAt = 0;
+	private readonly typingHideDelay = 3000;
+	private readonly typingThrottle = 2000;
 	@ViewChild('messageContainer') messageContainer?: ElementRef<HTMLElement>;
 
 	constructor(
@@ -50,6 +55,7 @@ export class ChatComponent implements OnInit {
 		this.chatService.getConnectionState().subscribe(online => {
 			this.currentUser.update(user => user ? { ...user, online } : user);
 		});
+		this.chatService.getTyping().subscribe(userId => this.setTyping(!!userId));
 		this.auth.currentUser().subscribe({
 			next: user => {
 				this.currentUser.set(user);
@@ -76,8 +82,28 @@ export class ChatComponent implements OnInit {
 		this.contactUsers.update(users => users.map(user =>
 			user.id === contact.id ? { ...user, unreadCount: 0 } : user));
 		this.messageInput.set('');
+		this.setTyping(false);
+		this.lastTypingSentAt = 0;
 		this.chatService.openConversation(this.userId(), contact.id);
 		this.updateUrl();
+	}
+
+	onInputChange(value: string): void {
+		this.messageInput.set(value);
+		if (!value.trim()) return;
+		const now = Date.now();
+		if (now - this.lastTypingSentAt < this.typingThrottle) return;
+		this.lastTypingSentAt = now;
+		this.chatService.sendTyping();
+	}
+
+	setTyping(typing: boolean): void {
+		if (this.typingHideTimer) clearTimeout(this.typingHideTimer);
+		this.typingHideTimer = undefined;
+		this.typing.set(typing);
+		if (typing) {
+			this.typingHideTimer = setTimeout(() => this.typing.set(false), this.typingHideDelay);
+		}
 	}
 
 	sendMessage(): void {
@@ -117,6 +143,10 @@ export class ChatComponent implements OnInit {
 				this.messageContainer.nativeElement.scrollTop = this.messageContainer.nativeElement.scrollHeight;
 			}
 		});
+	}
+
+	ngOnDestroy(): void {
+		if (this.typingHideTimer) clearTimeout(this.typingHideTimer);
 	}
 
 	private updateMessages(messages: ChatMessage[]): void {

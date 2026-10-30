@@ -21,6 +21,10 @@ export interface UserPresence {
     online: boolean;
 }
 
+export interface TypingEvent {
+    userId: string;
+}
+
 export interface ChatRoom {
     id: string;
     type: 'PRIVATE' | 'GROUP';
