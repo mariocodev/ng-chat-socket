@@ -1,6 +1,8 @@
 import { provideHttpClient, withInterceptors, withXsrfConfiguration } from '@angular/common/http';
 import { bootstrapApplication } from '@angular/platform-browser';
 import { provideRouter } from '@angular/router';
+import { providePrimeNG } from 'primeng/config';
+import Aura from '@primeuix/themes/aura';
 import { AppComponent } from './app/app.component';
 import { routes } from './app/app.routes';
 import { HttpInterceptorFn } from '@angular/common/http';
@@ -20,6 +22,8 @@ bootstrapApplication(AppComponent, {
 				headerName: 'X-XSRF-TOKEN'
 			})
 		),
-		provideRouter(routes)
+		provideRouter(routes),
+		// el preset inyecta los tokens (--p-skeleton-*) sin los cuales el skeleton sale transparente
+		providePrimeNG({ theme: { preset: Aura } })
 	]
 }).catch(error => console.error(error));

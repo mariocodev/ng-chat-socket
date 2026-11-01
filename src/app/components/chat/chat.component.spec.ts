@@ -63,6 +63,10 @@ describe('ChatComponent', () => {
     expect(component.sessionReady()).toBeTrue();
   });
 
+  it('shows the message skeleton until the conversation is ready', () => {
+    expect(component.loadingMessages()).toBeTrue();
+  });
+
   it('shows and clears typing state per user', fakeAsync(() => {
     component.setTyping('user-2', true);
     expect(component.typingUsers().has('user-2')).toBeTrue();

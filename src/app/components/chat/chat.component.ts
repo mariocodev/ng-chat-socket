@@ -5,6 +5,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { ChatMessage, ChatUser } from '../../models/chat-message.interface';
 import { AuthService } from '../../services/auth.service';
 import { ChatService } from '../../services/chat.service';
+import { SkeletonModule } from 'primeng/skeleton';
 
 type DisplayMessage = ChatMessage & { message_side: 'sender' | 'receiver' };
 
@@ -12,7 +13,7 @@ type DisplayMessage = ChatMessage & { message_side: 'sender' | 'receiver' };
 	selector: 'app-chat',
 	templateUrl: './chat.component.html',
 	styleUrls: ['./chat.component.scss'],
-	imports: [NgClass, FormsModule],
+	imports: [NgClass, FormsModule, SkeletonModule],
 	standalone: true
 })
 export class ChatComponent implements OnInit, OnDestroy {
@@ -23,6 +24,7 @@ export class ChatComponent implements OnInit, OnDestroy {
 	readonly messageInput = signal('');
 	readonly messageList = signal<DisplayMessage[]>([]);
 	readonly hasMore = signal(false);
+	readonly loadingMessages = signal(true);
 	readonly typingUsers = signal(new Set<string>());
 	readonly contactTyping = computed(() => this.typingUsers().has(this.contactId()));
 	readonly sessionReady = signal(false);
@@ -47,7 +49,10 @@ export class ChatComponent implements OnInit, OnDestroy {
 		this.chatService.getHasMore().subscribe(hasMore => this.hasMore.set(hasMore));
 		this.chatService.getErrors().subscribe(error => {
 			this.error.set(error);
-			if (error) this.sessionReady.set(true);
+			if (error) {
+				this.sessionReady.set(true);
+				this.loadingMessages.set(false);
+			}
 		});
 		this.chatService.getUnreadRefresh().subscribe(() => this.refreshUsers());
 		this.chatService.getPresenceUpdates().subscribe(presence => {
@@ -62,6 +67,7 @@ export class ChatComponent implements OnInit, OnDestroy {
 		});
 		this.chatService.getTyping().subscribe(state => this.setTyping(state.userId, state.typing));
 		this.chatService.getConversationReady().subscribe(ready => {
+			this.loadingMessages.set(!ready);
 			if (ready) this.sessionReady.set(true);
 		});
 		this.auth.currentUser().subscribe({

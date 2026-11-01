@@ -187,6 +187,18 @@
             </button>
           </li>
         }
+        @if (loadingMessages()) {
+          @for (row of [0, 1, 2]; track row) {
+            <li class="flex w-full items-end gap-2 sm:gap-3" [ngClass]="row % 2 === 0 ? 'flex-row' : 'flex-row-reverse'">
+              <div class="shrink-0">
+                <p-skeleton shape="circle" size="2rem"></p-skeleton>
+              </div>
+              <div class="w-2/3 sm:w-1/2">
+                <p-skeleton width="100%" [height]="row === 1 ? '5rem' : '3.5rem'"></p-skeleton>
+              </div>
+            </li>
+          }
+        }
         @for (item of messageList(); track item.id) {
           <li
             class="flex w-full items-end gap-2 sm:gap-3"
