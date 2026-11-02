@@ -1,6 +1,7 @@
 import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { ActivatedRoute, Router } from '@angular/router';
 import { of } from 'rxjs';
+import { ConfirmationService } from 'primeng/api';
 import { ChatComponent } from './chat.component';
 import { AuthService } from '../../services/auth.service';
 import { ChatService } from '../../services/chat.service';
@@ -29,7 +30,8 @@ describe('ChatComponent', () => {
                 getConnectionState: () => of(false),
                 connect: jasmine.createSpy('connect'),
                 sendTyping: jasmine.createSpy('sendTyping'),
-                openConversation: jasmine.createSpy('openConversation')
+                openConversation: jasmine.createSpy('openConversation'),
+                clearConversation: jasmine.createSpy('clearConversation')
             } }
     ]
 });
@@ -65,6 +67,20 @@ describe('ChatComponent', () => {
 
   it('shows the message skeleton until the conversation is ready', () => {
     expect(component.loadingMessages()).toBeTrue();
+  });
+
+  it('confirms before clearing the conversation', () => {
+    const confirmation = fixture.debugElement.injector.get(ConfirmationService);
+    spyOn(confirmation, 'confirm');
+
+    component.clearConversation();
+
+    const options = (confirmation.confirm as jasmine.Spy).calls.mostRecent().args[0];
+    expect(options.acceptLabel).toBe('Eliminar mensajes');
+    expect(options.rejectLabel).toBe('Cancelar');
+    expect(options.icon).toBeUndefined();
+    options.accept?.();
+    expect(TestBed.inject(ChatService).clearConversation).toHaveBeenCalled();
   });
 
   it('shows and clears typing state per user', fakeAsync(() => {

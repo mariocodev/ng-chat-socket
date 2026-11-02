@@ -5,6 +5,8 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { ChatMessage, ChatUser } from '../../models/chat-message.interface';
 import { AuthService } from '../../services/auth.service';
 import { ChatService } from '../../services/chat.service';
+import { ConfirmationService } from 'primeng/api';
+import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { SkeletonModule } from 'primeng/skeleton';
 
 type DisplayMessage = ChatMessage & { message_side: 'sender' | 'receiver' };
@@ -13,7 +15,8 @@ type DisplayMessage = ChatMessage & { message_side: 'sender' | 'receiver' };
 	selector: 'app-chat',
 	templateUrl: './chat.component.html',
 	styleUrls: ['./chat.component.scss'],
-	imports: [NgClass, FormsModule, SkeletonModule],
+	imports: [NgClass, FormsModule, SkeletonModule, ConfirmDialogModule],
+	providers: [ConfirmationService],
 	standalone: true
 })
 export class ChatComponent implements OnInit, OnDestroy {
@@ -39,6 +42,7 @@ export class ChatComponent implements OnInit, OnDestroy {
 	constructor(
 		private auth: AuthService,
 		private chatService: ChatService,
+		private confirmation: ConfirmationService,
 		private route: ActivatedRoute,
 		private router: Router
 	) {}
@@ -147,7 +151,17 @@ export class ChatComponent implements OnInit, OnDestroy {
 	}
 
 	clearConversation(): void {
-		this.chatService.clearConversation();
+		const count = this.messageList().length;
+		this.confirmation.confirm({
+			header: '¿Eliminar todos los mensajes?',
+			message: `Se eliminarán ${count} ${count === 1 ? 'mensaje' : 'mensajes'} de esta conversación.\nEsta acción es irreversible y no se podrán recuperar.`,
+			rejectLabel: 'Cancelar',
+			acceptLabel: 'Eliminar mensajes',
+			closable: false,
+			acceptButtonProps: { styleClass: '!bg-red-600 hover:!bg-red-700 !text-white !border-0 px-4 py-2 rounded-lg' },
+			rejectButtonProps: { styleClass: '!bg-transparent hover:!bg-slate-100 !text-slate-700 !border !border-slate-300 px-4 py-2 rounded-lg' },
+			accept: () => this.chatService.clearConversation()
+		});
 	}
 
 	logout(): void {
