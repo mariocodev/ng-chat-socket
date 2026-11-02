@@ -8,6 +8,7 @@ import { ChatService } from '../../services/chat.service';
 import { ConfirmationService } from 'primeng/api';
 import { ConfirmDialogModule } from 'primeng/confirmdialog';
 import { SkeletonModule } from 'primeng/skeleton';
+import { UserMenuComponent } from '../user-menu/user-menu.component';
 
 type DisplayMessage = ChatMessage & { message_side: 'sender' | 'receiver' };
 
@@ -15,7 +16,7 @@ type DisplayMessage = ChatMessage & { message_side: 'sender' | 'receiver' };
 	selector: 'app-chat',
 	templateUrl: './chat.component.html',
 	styleUrls: ['./chat.component.scss'],
-	imports: [NgClass, FormsModule, SkeletonModule, ConfirmDialogModule],
+	imports: [NgClass, FormsModule, SkeletonModule, ConfirmDialogModule, UserMenuComponent],
 	providers: [ConfirmationService],
 	standalone: true
 })
@@ -154,7 +155,7 @@ export class ChatComponent implements OnInit, OnDestroy {
 		const count = this.messageList().length;
 		this.confirmation.confirm({
 			header: '¿Eliminar todos los mensajes?',
-			message: `Se eliminarán ${count} ${count === 1 ? 'mensaje' : 'mensajes'} de esta conversación.\nEsta acción es irreversible y no se podrán recuperar.`,
+			message: `Se eliminarán ${count} ${count === 1 ? 'mensaje' : 'mensajes'} de esta conversación.<br>Esta acción es irreversible y no se podrán recuperar.`,
 			rejectLabel: 'Cancelar',
 			acceptLabel: 'Eliminar mensajes',
 			closable: false,
